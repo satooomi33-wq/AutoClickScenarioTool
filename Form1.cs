@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using System.Windows.Forms;
 using AutoClickScenarioTool.Models;
 using AutoClickScenarioTool.Services;
@@ -14,7 +15,8 @@ namespace AutoClickScenarioTool
     {
         private readonly DataService _dataService = new DataService();
         private readonly InputService _inputService = new InputService();
-        private ScriptService _scriptService;
+        // ...existing code...
+        private ScriptService? _scriptService;
 
         private bool _isPaused = false;
 
@@ -66,7 +68,7 @@ namespace AutoClickScenarioTool
         {
             // initialize script service and hookup
             var script = new ScriptService(_input_service_wrap());
-            _scriptService = script;
+            _scriptService = script!;
             _scriptService.OnLog += s => AppendLog(s);
             _scriptService.OnStopped += () => Invoke(new Action(ScriptStopped));
             _scriptService.OnPaused += (idx) => Invoke(new Action<int>(HandlePaused));
@@ -89,7 +91,7 @@ namespace AutoClickScenarioTool
             }
         }
 
-        private void RefreshNoColumn()
+        public void RefreshNoColumn()
         {
             for (int i = 0; i < dgvScenario.Rows.Count; i++)
             {
@@ -99,7 +101,7 @@ namespace AutoClickScenarioTool
             }
         }
 
-        private void AppendLog(string s)
+        public void AppendLog(string s)
         {
             if (InvokeRequired)
             {
@@ -224,7 +226,7 @@ namespace AutoClickScenarioTool
             foreach (var s in steps)
             {
                 var cells = new object[12];
-                cells[0] = null; // NO: will be filled
+                cells[0] = string.Empty; // NO: will be filled
                 cells[1] = s.Delay;
                 for (int i = 0; i < 10; i++)
                 {
@@ -281,7 +283,7 @@ namespace AutoClickScenarioTool
                 btnPause.Enabled = true;
                 btnStop.Enabled = true;
 
-                await _scriptService.StartAsync(steps, startIndex).ConfigureAwait(false);
+                await _scriptService!.StartAsync(steps, startIndex).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -291,7 +293,7 @@ namespace AutoClickScenarioTool
 
         private void btnPause_Click(object sender, EventArgs e)
         {
-            if (!_scriptService.IsRunning) return;
+            if (!(_scriptService?.IsRunning ?? false)) return;
             if (_isPaused)
             {
                 _scriptService.Resume();
@@ -311,7 +313,7 @@ namespace AutoClickScenarioTool
 
         private void btnStop_Click(object sender, EventArgs e)
         {
-            if (!_scriptService.IsRunning) return;
+            if (!(_scriptService?.IsRunning ?? false)) return;
             _scriptService.Stop();
             btnStart.Enabled = true;
             btnPause.Enabled = false;
@@ -390,68 +392,103 @@ namespace AutoClickScenarioTool
             RefreshNoColumn();
         }
 
-        private async void btnCapture_Click(object sender, EventArgs e)
+        private bool _captureMode = false;
+        private IntPtr _mainHandle;
+        private GlobalMouseHook? _mouseHook;
+        // 重複定義削除
+        protected override void OnLoad(EventArgs e)
         {
-            AppendLog("座標抽出中: 画面上で左クリックしてください...");
-            await Task.Run(async () =>
-            {
-                // wait for left button down
-                while ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0)
-                {
-                    await Task.Delay(30).ConfigureAwait(false);
-                }
-                var p = System.Windows.Forms.Cursor.Position;
-                Invoke(new Action(() =>
-                {
-                    int rowIndex = dgvScenario.CurrentCell?.RowIndex ?? -1;
-                    if (rowIndex < 0 || rowIndex >= dgvScenario.Rows.Count)
-                    {
-                        dgvScenario.Rows.Add();
-                        rowIndex = dgvScenario.Rows.Count - 1;
-                    }
-
-                    // find first pos column that is empty or use current cell if in pos column
-                    int targetCol = -1;
-                    if (dgvScenario.CurrentCell != null && dgvScenario.CurrentCell.ColumnIndex >= 2)
-                        targetCol = dgvScenario.CurrentCell.ColumnIndex;
-                    else
-                    {
-                        for (int c = 2; c < dgvScenario.ColumnCount; c++)
-                        {
-                            var v = dgvScenario.Rows[rowIndex].Cells[c].Value?.ToString();
-                            if (string.IsNullOrWhiteSpace(v)) { targetCol = c; break; }
-                        }
-                    }
-
-                    if (targetCol == -1)
-                    {
-                        MessageBox.Show("空きの座標列がありません。", "情報", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        return;
-                    }
-
-                    // ウィンドウを前面に戻す
-                    SetForegroundWindow(this.Handle);
-                    // セルに座標を書き込む
-                    // 編集中なら確定
-                    if (dgvScenario.IsCurrentCellInEditMode)
-                        dgvScenario.EndEdit();
-                    dgvScenario.Rows[rowIndex].Cells[targetCol].Value = $"{p.X},{p.Y}";
-                    RefreshNoColumn();
-                    AppendLog($"座標取得: {p.X},{p.Y}");
-                    // 一番下の新規行に値を入れた場合は新たな空行を追加
-                    if (rowIndex == dgvScenario.Rows.Count - 2 && dgvScenario.AllowUserToAddRows)
-                    {
-                        dgvScenario.Rows.Add();
-                        RefreshNoColumn();
-                    }
-                    // フォーカスを遅延で強制復帰
-                    BeginInvoke(new Action(() => {
-                        dgvScenario.CurrentCell = dgvScenario.Rows[rowIndex].Cells[targetCol];
-                        dgvScenario.Select();
-                        dgvScenario.Focus();
-                    }));
-                }));
-            }).ConfigureAwait(false);
+            base.OnLoad(e);
+            _mainHandle = this.Handle;
+            btnToggleCapture.CheckedChanged += BtnToggleCapture_CheckedChanged;
+            // _mouseClickFilter の初期化は不要（フィールド未定義のため）
+            _mouseHook = new GlobalMouseHook();
+            _mouseHook.OnMouseClick += HandleGlobalMouseClick;
         }
+
+        private void BtnToggleCapture_CheckedChanged(object? sender, EventArgs e)
+        {
+            _captureMode = btnToggleCapture.Checked;
+            btnToggleCapture.Text = _captureMode ? "座標抽出 ON" : "座標抽出 OFF";
+            if (_captureMode)
+            {
+                _mouseHook?.Start();
+                AppendLog("座標抽出モード: ON");
+            }
+            else
+            {
+                _mouseHook?.Stop();
+                AppendLog("座標抽出モード: OFF");
+            }
+
+        }
+
+        // グローバルマウスクリック時の座標抽出処理
+        public void HandleGlobalMouseClick(int x, int y)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => HandleGlobalMouseClick(x, y)));
+                return;
+            }
+            // 座標カラムのセルにフォーカスがある場合のみ抽出
+            if (dgvScenario.CurrentCell == null || dgvScenario.CurrentCell.ColumnIndex < 2) return;
+            int rowIndex = dgvScenario.CurrentCell.RowIndex;
+            int targetCol = dgvScenario.CurrentCell.ColumnIndex;
+            if (dgvScenario.IsCurrentCellInEditMode)
+                dgvScenario.EndEdit();
+            dgvScenario.Rows[rowIndex].Cells[targetCol].Value = $"{x},{y}";
+            RefreshNoColumn();
+            AppendLog($"座標取得: {x},{y}");
+            if (rowIndex == dgvScenario.Rows.Count - 2 && dgvScenario.AllowUserToAddRows)
+            {
+                dgvScenario.Rows.Add();
+                RefreshNoColumn();
+            }
+            BeginInvoke(new Action(() => {
+                dgvScenario.CurrentCell = dgvScenario.Rows[rowIndex].Cells[targetCol];
+                dgvScenario.Select();
+                dgvScenario.Focus();
+            }));
+        }
+
+    // グローバルマウスクリック監視用MessageFilter
+public class MouseClickMessageFilter : IMessageFilter
+{
+    private readonly Form1 _form;
+    public MouseClickMessageFilter(Form1 form) { _form = form; }
+    public bool PreFilterMessage(ref Message m)
+    {
+        const int WM_LBUTTONDOWN = 0x0201;
+        if (m.Msg == WM_LBUTTONDOWN)
+        {
+            var cursorPos = System.Windows.Forms.Cursor.Position;
+            // 条件を緩和：どこをクリックしても抽出する
+            if (_form.dgvScenario.CurrentCell == null) return false;
+            int rowIndex = _form.dgvScenario.CurrentCell.RowIndex;
+            int targetCol = _form.dgvScenario.CurrentCell.ColumnIndex;
+            if (_form.dgvScenario.IsCurrentCellInEditMode)
+                _form.dgvScenario.EndEdit();
+            _form.dgvScenario.Rows[rowIndex].Cells[targetCol].Value = $"{cursorPos.X},{cursorPos.Y}";
+            _form.RefreshNoColumn();
+            _form.AppendLog($"座標取得: {cursorPos.X},{cursorPos.Y}");
+            if (rowIndex == _form.dgvScenario.Rows.Count - 2 && _form.dgvScenario.AllowUserToAddRows)
+            {
+                _form.dgvScenario.Rows.Add();
+                _form.RefreshNoColumn();
+            }
+            _form.BeginInvoke(new Action(() => {
+                _form.dgvScenario.CurrentCell = _form.dgvScenario.Rows[rowIndex].Cells[targetCol];
+                _form.dgvScenario.Select();
+                _form.dgvScenario.Focus();
+            }));
+        }
+        return false;
     }
+
+}
+// Form1 クラス閉じ括弧
+}
+// クラス閉じ括弧追加
+
 }

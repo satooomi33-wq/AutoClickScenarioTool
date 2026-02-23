@@ -29,12 +29,12 @@
         private System.Windows.Forms.Button btnStart;
         private System.Windows.Forms.Button btnPause;
         private System.Windows.Forms.Button btnStop;
-        private System.Windows.Forms.Button btnCapture;
+        private System.Windows.Forms.CheckBox btnToggleCapture;
         private System.Windows.Forms.TextBox txtDataFolder;
         private System.Windows.Forms.Button btnBrowse;
         private System.Windows.Forms.ComboBox cmbFiles;
         private System.Windows.Forms.Button btnSave;
-        private System.Windows.Forms.DataGridView dgvScenario;
+        public System.Windows.Forms.DataGridView dgvScenario;
         private System.Windows.Forms.TextBox txtLog;
 
         private void InitializeComponent()
@@ -42,15 +42,25 @@
             btnStart = new Button();
             btnPause = new Button();
             btnStop = new Button();
-            btnCapture = new Button();
             txtDataFolder = new TextBox();
             btnBrowse = new Button();
             cmbFiles = new ComboBox();
             btnSave = new Button();
             dgvScenario = new DataGridView();
             txtLog = new TextBox();
+            btnToggleCapture = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)dgvScenario).BeginInit();
             SuspendLayout();
+            // 
+            // btnToggleCapture
+            // 
+            btnToggleCapture.Appearance = Appearance.Button;
+            btnToggleCapture.Location = new Point(678, 130);
+            btnToggleCapture.Name = "btnToggleCapture";
+            btnToggleCapture.Size = new Size(110, 45);
+            btnToggleCapture.TabIndex = 3;
+            btnToggleCapture.Text = "座標抽出 OFF";
+            btnToggleCapture.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // btnStart
             // 
@@ -84,16 +94,6 @@
             btnStop.Text = "⏹";
             btnStop.UseVisualStyleBackColor = true;
             btnStop.Click += btnStop_Click;
-            // 
-            // btnCapture
-            // 
-            btnCapture.Location = new Point(678, 130);
-            btnCapture.Name = "btnCapture";
-            btnCapture.Size = new Size(110, 45);
-            btnCapture.TabIndex = 3;
-            btnCapture.Text = "座標抽出";
-            btnCapture.UseVisualStyleBackColor = true;
-            btnCapture.Click += btnCapture_Click;
             // 
             // txtDataFolder
             // 
@@ -141,11 +141,11 @@
             dgvScenario.RowTemplate.Height = 25;
             dgvScenario.Size = new Size(776, 645);
             dgvScenario.TabIndex = 9;
+            dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
             dgvScenario.RowsAdded += dgvScenario_RowsChanged;
             dgvScenario.RowsRemoved += dgvScenario_RowsChanged;
-            dgvScenario.UserDeletedRow += dgvScenario_RowsChanged;
-            dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
             dgvScenario.UserAddedRow += dgvScenario_UserAddedRow;
+            dgvScenario.UserDeletedRow += dgvScenario_RowsChanged;
             // 
             // txtLog
             // 
@@ -161,14 +161,14 @@
             // 
             AutoScaleDimensions = new SizeF(12F, 30F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(811, 980);
+            ClientSize = new Size(838, 980);
             Controls.Add(txtLog);
             Controls.Add(dgvScenario);
             Controls.Add(btnSave);
             Controls.Add(cmbFiles);
             Controls.Add(btnBrowse);
             Controls.Add(txtDataFolder);
-            Controls.Add(btnCapture);
+            Controls.Add(btnToggleCapture);
             Controls.Add(btnStop);
             Controls.Add(btnPause);
             Controls.Add(btnStart);
