@@ -1,5 +1,5 @@
 [
-  { "Delay": 450, "Positions": [ "350,450" ] },
-  { "Delay": 500, "Positions": [ "360,460", "370,470" ] },
-  { "Delay": 300, "Positions": [ "380,480" ] }
+  { "Delay": 450, "PressDuration": 100, "Positions": [ "350,450" ] },
+  { "Delay": 500, "PressDuration": 100, "Positions": [ "360,460", "370,470" ] },
+  { "Delay": 300, "PressDuration": 100, "Positions": [ "380,480" ] }
 ]

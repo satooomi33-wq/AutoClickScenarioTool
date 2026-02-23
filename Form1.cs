@@ -132,6 +132,40 @@ namespace AutoClickScenarioTool
             RefreshFileList();
         }
 
+        // Designer-referenced handlers: add simple implementations to avoid CS1061
+        private void btnAddRow_Click(object? sender, EventArgs e)
+        {
+            // insert new row after current
+            try
+            {
+                int idx = dgvScenario.CurrentCell?.RowIndex ?? dgvScenario.Rows.Count - 1;
+                InsertBlankRowAt(idx + 1);
+            }
+            catch { }
+        }
+
+        private void btnRowUp_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (dgvScenario.CurrentCell == null) return;
+                var r = dgvScenario.CurrentCell.RowIndex;
+                MoveRow(r, Math.Max(0, r - 1));
+            }
+            catch { }
+        }
+
+        private void btnRowDown_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (dgvScenario.CurrentCell == null) return;
+                var r = dgvScenario.CurrentCell.RowIndex;
+                MoveRow(r, Math.Min(dgvScenario.Rows.Count - 1, r + 1));
+            }
+            catch { }
+        }
+
         private void LogDisplayInfo()
         {
             try
@@ -226,12 +260,22 @@ namespace AutoClickScenarioTool
             dgvScenario.Columns.Clear();
             var colNo = new DataGridViewTextBoxColumn { Name = "NO", HeaderText = "NO", ReadOnly = true, Width = 40 };
             var colDelay = new DataGridViewTextBoxColumn { Name = "Delay", HeaderText = "遅延(ms)", Width = 80 };
+            var colPress = new DataGridViewTextBoxColumn { Name = "PressDuration", HeaderText = "押下時間(ms)", Width = 100 };
             dgvScenario.Columns.Add(colNo);
             dgvScenario.Columns.Add(colDelay);
+            dgvScenario.Columns.Add(colPress);
             for (int i = 1; i <= 10; i++)
             {
                 dgvScenario.Columns.Add(new DataGridViewTextBoxColumn { Name = $"Pos{i}", HeaderText = $"座標{i}", Width = 120 });
             }
+            // enable row drag/drop
+            dgvScenario.AllowDrop = true;
+            dgvScenario.MouseDown += DgvScenario_MouseDown;
+            dgvScenario.DragOver += DgvScenario_DragOver;
+            dgvScenario.DragDrop += DgvScenario_DragDrop;
+            dgvScenario.CellMouseDown += DgvScenario_CellMouseDown;
+            // context menu
+            EnsureRowContextMenu();
         }
 
         public void RefreshNoColumn()
@@ -242,6 +286,113 @@ namespace AutoClickScenarioTool
                 if (row.IsNewRow) continue;
                 row.Cells[0].Value = (i + 1).ToString();
             }
+        }
+
+        // Drag/drop and context menu support
+        private ContextMenuStrip? _rowContextMenu;
+        private int _dragRowIndex = -1;
+
+        private void EnsureRowContextMenu()
+        {
+            if (_rowContextMenu != null) return;
+            _rowContextMenu = new ContextMenuStrip();
+            var insertAbove = new ToolStripMenuItem("行を上に挿入");
+            var insertBelow = new ToolStripMenuItem("行を下に挿入");
+            var delete = new ToolStripMenuItem("行を削除");
+            var moveUp = new ToolStripMenuItem("上へ移動");
+            var moveDown = new ToolStripMenuItem("下へ移動");
+            insertAbove.Click += (s, e) => { if (dgvScenario.CurrentCell != null) InsertBlankRowAt(dgvScenario.CurrentCell.RowIndex); };
+            insertBelow.Click += (s, e) => { if (dgvScenario.CurrentCell != null) InsertBlankRowAt(dgvScenario.CurrentCell.RowIndex + 1); };
+            delete.Click += (s, e) => { if (dgvScenario.CurrentCell != null) DeleteRowAt(dgvScenario.CurrentCell.RowIndex); };
+            moveUp.Click += (s, e) => { if (dgvScenario.CurrentCell != null) MoveRow(dgvScenario.CurrentCell.RowIndex, Math.Max(0, dgvScenario.CurrentCell.RowIndex - 1)); };
+            moveDown.Click += (s, e) => { if (dgvScenario.CurrentCell != null) MoveRow(dgvScenario.CurrentCell.RowIndex, dgvScenario.CurrentCell.RowIndex + 1); };
+            _rowContextMenu.Items.AddRange(new ToolStripItem[] { insertAbove, insertBelow, delete, moveUp, moveDown });
+        }
+
+        private void DgvScenario_CellMouseDown(object? sender, DataGridViewCellMouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right && e.RowIndex >= 0)
+            {
+                try
+                {
+                    dgvScenario.CurrentCell = dgvScenario.Rows[e.RowIndex].Cells[e.ColumnIndex >= 0 ? e.ColumnIndex : 0];
+                    if (_rowContextMenu != null)
+                        _rowContextMenu.Show(Cursor.Position);
+                }
+                catch { }
+            }
+        }
+
+        private void DgvScenario_MouseDown(object? sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                var info = dgvScenario.HitTest(e.X, e.Y);
+                if (info.RowIndex >= 0)
+                {
+                    _dragRowIndex = info.RowIndex;
+                    dgvScenario.DoDragDrop(_dragRowIndex, DragDropEffects.Move);
+                }
+            }
+        }
+
+        private void DgvScenario_DragOver(object? sender, DragEventArgs e)
+        {
+            e.Effect = DragDropEffects.Move;
+        }
+
+        private void DgvScenario_DragDrop(object? sender, DragEventArgs e)
+        {
+            var clientPoint = dgvScenario.PointToClient(new System.Drawing.Point(e.X, e.Y));
+            var info = dgvScenario.HitTest(clientPoint.X, clientPoint.Y);
+            if (info.RowIndex < 0) return;
+            if (e.Data != null && e.Data.GetDataPresent(typeof(int)))
+            {
+                var obj = e.Data.GetData(typeof(int));
+                if (obj is int from)
+                {
+                    int to = info.RowIndex;
+                    MoveRow(from, to);
+                }
+            }
+        }
+
+        private void InsertBlankRowAt(int index)
+        {
+            index = Math.Max(0, Math.Min(index, dgvScenario.Rows.Count));
+            var cells = new object[dgvScenario.ColumnCount];
+            for (int i = 0; i < cells.Length; i++) cells[i] = string.Empty;
+            dgvScenario.Rows.Insert(index, cells);
+            RefreshNoColumn();
+        }
+
+        private void DeleteRowAt(int index)
+        {
+            if (index < 0 || index >= dgvScenario.Rows.Count) return;
+            if (dgvScenario.Rows[index].IsNewRow) return;
+            dgvScenario.Rows.RemoveAt(index);
+            RefreshNoColumn();
+        }
+
+        private void MoveRow(int fromIndex, int toIndex)
+        {
+            if (fromIndex < 0 || fromIndex >= dgvScenario.Rows.Count) return;
+            if (toIndex < 0) toIndex = 0;
+            if (toIndex >= dgvScenario.Rows.Count) toIndex = dgvScenario.Rows.Count - 1;
+            if (fromIndex == toIndex) return;
+            var row = dgvScenario.Rows[fromIndex];
+            var values = new object[dgvScenario.ColumnCount];
+            for (int i = 0; i < dgvScenario.ColumnCount; i++)
+            {
+                var v = row.Cells[i].Value;
+                values[i] = v ?? string.Empty;
+            }
+            // insert copy
+            dgvScenario.Rows.Insert(toIndex, values);
+            // adjust removal index if inserting before original
+            if (fromIndex >= toIndex) fromIndex += 1;
+            dgvScenario.Rows.RemoveAt(fromIndex);
+            RefreshNoColumn();
         }
 
         public void AppendLog(string s)
@@ -368,12 +519,13 @@ namespace AutoClickScenarioTool
             dgvScenario.Rows.Clear();
             foreach (var s in steps)
             {
-                var cells = new object[12];
+                var cells = new object[13];
                 cells[0] = string.Empty; // NO: will be filled
                 cells[1] = s.Delay;
+                cells[2] = s.PressDuration;
                 for (int i = 0; i < 10; i++)
                 {
-                    cells[2 + i] = i < s.Positions.Count ? s.Positions[i] : string.Empty;
+                    cells[3 + i] = i < s.Positions.Count ? s.Positions[i] : string.Empty;
                 }
                 dgvScenario.Rows.Add(cells);
             }
@@ -393,10 +545,16 @@ namespace AutoClickScenarioTool
                     step.Delay = d;
                 else
                     step.Delay = 0;
+                // read press duration (new column)
+                var pdCell = row.Cells[2].Value;
+                if (pdCell != null && int.TryParse(pdCell.ToString(), out var pd))
+                    step.PressDuration = pd;
+                else
+                    step.PressDuration = 100;
 
                 for (int i = 0; i < 10; i++)
                 {
-                    var v = row.Cells[2 + i].Value?.ToString();
+                    var v = row.Cells[3 + i].Value?.ToString();
                     if (!string.IsNullOrWhiteSpace(v))
                         step.Positions.Add(v.Trim());
                 }
@@ -555,6 +713,20 @@ namespace AutoClickScenarioTool
         {
             _captureMode = btnToggleCapture.Checked;
             btnToggleCapture.Text = _captureMode ? "座標抽出 ON" : "座標抽出 OFF";
+            try
+            {
+                if (_captureMode)
+                {
+                    btnToggleCapture.BackColor = System.Drawing.Color.FromArgb(144, 238, 144); // lightgreen
+                    btnToggleCapture.ForeColor = System.Drawing.Color.Black;
+                }
+                else
+                {
+                    btnToggleCapture.BackColor = System.Drawing.SystemColors.Control;
+                    btnToggleCapture.ForeColor = System.Drawing.Color.Black;
+                }
+            }
+            catch { }
             if (_captureMode)
             {
                 _mouseHook?.Start();
@@ -580,7 +752,7 @@ namespace AutoClickScenarioTool
             // ログ出力：マウスフックイベント到達確認
             AppendLog($"OnMouseClick raw: {x},{y}");
             // 座標カラムのセルにフォーカスがある場合のみ抽出
-            if (dgvScenario.CurrentCell == null || dgvScenario.CurrentCell.ColumnIndex < 2)
+            if (dgvScenario.CurrentCell == null || dgvScenario.CurrentCell.ColumnIndex < 3)
             {
                 AppendLog("OnMouseClick: CurrentCell 不在または座標カラムではないため無視");
                 return;
@@ -852,10 +1024,6 @@ namespace AutoClickScenarioTool
             }));
         }
 
-    }
-
-    public partial class Form1
-    {
         // Temporary tiny topmost window trick to nudge the OS focus rules
         private void TemporaryFocusGrabber()
         {

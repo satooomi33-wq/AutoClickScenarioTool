@@ -55,6 +55,10 @@
             // btnToggleCapture
             // 
             btnToggleCapture.Appearance = Appearance.Button;
+            btnToggleCapture.FlatStyle = FlatStyle.Flat;
+            btnToggleCapture.FlatAppearance.BorderSize = 1;
+            btnToggleCapture.Cursor = Cursors.Hand;
+            btnToggleCapture.BackColor = System.Drawing.SystemColors.Control;
             btnToggleCapture.Location = new Point(678, 130);
             btnToggleCapture.Name = "btnToggleCapture";
             btnToggleCapture.Size = new Size(110, 45);

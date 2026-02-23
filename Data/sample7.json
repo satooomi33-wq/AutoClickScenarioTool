@@ -1,4 +1,4 @@
 [
-  { "Delay": 900, "Positions": [ "1024,768" ] },
-  { "Delay": 200, "Positions": [ "100,100", "200,200" ] }
+  { "Delay": 900, "PressDuration": 100, "Positions": [ "1024,768" ] },
+  { "Delay": 200, "PressDuration": 100, "Positions": [ "100,100", "200,200" ] }
 ]
