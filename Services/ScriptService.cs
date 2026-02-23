@@ -14,8 +14,10 @@ namespace AutoClickScenarioTool.Services
         private CancellationTokenSource? _cts;
         private ManualResetEventSlim _pauseEvent = new ManualResetEventSlim(true);
         public bool IsRunning { get; private set; }
+        public int CurrentIndex { get; private set; } = -1;
 
         public event Action<string>? OnLog;
+        public event Action<int>? OnPaused;
         public event Action? OnStopped;
 
         public ScriptService(InputService input)
@@ -27,6 +29,8 @@ namespace AutoClickScenarioTool.Services
         {
             _pauseEvent.Reset();
             OnLog?.Invoke("Paused");
+            // notify UI of pause and current index
+            OnPaused?.Invoke(CurrentIndex);
         }
 
         public void Resume()
@@ -60,6 +64,7 @@ namespace AutoClickScenarioTool.Services
                         token.ThrowIfCancellationRequested();
                         _pauseEvent.Wait(token);
 
+                        CurrentIndex = i;
                         var step = steps[i];
                         OnLog?.Invoke($"行{i + 1}: 座標 {step.Positions.Count} 点クリック");
 

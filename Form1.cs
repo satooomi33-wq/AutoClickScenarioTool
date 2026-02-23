@@ -14,22 +14,29 @@ namespace AutoClickScenarioTool
     {
         private readonly DataService _dataService = new DataService();
         private readonly InputService _inputService = new InputService();
-        private readonly ScriptService _scriptService;
+        private ScriptService _scriptService;
 
         private bool _isPaused = false;
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
+
+        private const int VK_LBUTTON = 0x01;
 
         public Form1()
         {
             InitializeComponent();
-            _scriptService = new ScriptService(_inputService);
-            _scriptService.OnLog += s => AppendLog(s);
-            _scriptService.OnStopped += () => Invoke(new Action(ScriptStopped));
+
+            _script_service_init();
 
             CreateGridColumns();
+
             // プロジェクト直下のDataを優先し、なければbin配下を使う
             try
             {
-                // bin配下から2階層上がプロジェクトルート想定
                 var exeDir = AppDomain.CurrentDomain.BaseDirectory;
                 var projDir = Path.GetFullPath(Path.Combine(exeDir, "..", "..", ".."));
                 var projData = Path.Combine(projDir, "Data");
@@ -49,6 +56,25 @@ namespace AutoClickScenarioTool
 
             RefreshFileList();
         }
+
+        private void _script_service_init()
+        {
+            _script_service_init_inner();
+        }
+
+        private void _script_service_init_inner()
+        {
+            // initialize script service and hookup
+            var script = new ScriptService(_input_service_wrap());
+            _scriptService = script;
+            _scriptService.OnLog += s => AppendLog(s);
+            _scriptService.OnStopped += () => Invoke(new Action(ScriptStopped));
+            _scriptService.OnPaused += (idx) => Invoke(new Action<int>(HandlePaused));
+        }
+
+        // wrappers to avoid tiny naming collisions
+        private InputService _input_service_wrap() => _input_service_real();
+        private InputService _input_service_real() => _inputService;
 
         private void CreateGridColumns()
         {
@@ -89,12 +115,11 @@ namespace AutoClickScenarioTool
             {
                 var folder = txtDataFolder.Text;
                 cmbFiles.Items.Clear();
+                cmbFiles.Text = ""; // 初期値ブランク
                 if (Directory.Exists(folder))
                 {
                     foreach (var f in _dataService.ListJsonFiles(folder))
                         cmbFiles.Items.Add(f);
-                    if (cmbFiles.Items.Count > 0)
-                        cmbFiles.SelectedIndex = 0;
                 }
             }
             catch (Exception ex)
@@ -103,7 +128,7 @@ namespace AutoClickScenarioTool
             }
         }
 
-        private async void btnBrowse_Click(object sender, EventArgs e)
+        private void btnBrowse_Click(object sender, EventArgs e)
         {
             using var dlg = new FolderBrowserDialog();
             if (dlg.ShowDialog() == DialogResult.OK)
@@ -115,21 +140,24 @@ namespace AutoClickScenarioTool
 
         private void cmbFiles_SelectedIndexChanged(object sender, EventArgs e)
         {
-            // no-op; user can click 読み込み
+            LoadScenarioFromCombo();
         }
 
-        private async void btnLoad_Click(object sender, EventArgs e)
+        private void cmbFiles_TextChanged(object sender, EventArgs e)
+        {
+            LoadScenarioFromCombo();
+        }
+
+        private async void LoadScenarioFromCombo()
         {
             var folder = txtDataFolder.Text;
-            if (string.IsNullOrWhiteSpace(folder) || cmbFiles.SelectedItem == null)
-            {
-                MessageBox.Show("DATAフォルダとファイルを選択してください。", "情報", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-            var path = Path.Combine(folder, cmbFiles.SelectedItem.ToString());
+            var fileName = cmbFiles.Text?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(folder) || string.IsNullOrWhiteSpace(fileName)) return;
+            var path = Path.Combine(folder, fileName);
+            if (!File.Exists(path)) return;
             try
             {
-                var steps = await _dataService.LoadAsync(path).ConfigureAwait(false);
+                var steps = await _data_service_load(path).ConfigureAwait(false);
                 Invoke(new Action(() => FillGridWithSteps(steps)));
                 AppendLog("読み込み完了: " + path);
             }
@@ -138,6 +166,8 @@ namespace AutoClickScenarioTool
                 AppendLog("読み込みエラー: " + ex.Message);
             }
         }
+
+        private Task<List<ScenarioStep>> _data_service_load(string path) => _dataService.LoadAsync(path);
 
         private async void btnSave_Click(object sender, EventArgs e)
         {
@@ -148,25 +178,29 @@ namespace AutoClickScenarioTool
                 return;
             }
 
-            string fileName = cmbFiles.SelectedItem?.ToString() ?? string.Empty;
-            string path;
+            string? fileName = cmbFiles.Text?.Trim();
             if (string.IsNullOrWhiteSpace(fileName))
             {
-                using var sdlg = new SaveFileDialog();
-                sdlg.InitialDirectory = folder;
-                sdlg.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*";
-                if (sdlg.ShowDialog() != DialogResult.OK)
-                    return;
-                path = sdlg.FileName;
+                MessageBox.Show("ファイル名を入力してください。", "情報", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            string path = Path.Combine(folder, fileName);
+
+            var steps = ReadStepsFromGrid();
+            bool fileExists = File.Exists(path);
+            DialogResult dr;
+            if (fileExists)
+            {
+                dr = MessageBox.Show($"{fileName} は既存ファイルです。上書きしますか？", "確認", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (dr != DialogResult.Yes) return;
             }
             else
             {
-                path = Path.Combine(folder, fileName);
+                dr = MessageBox.Show($"{fileName} を新規作成します。よろしいですか？", "確認", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (dr != DialogResult.Yes) return;
             }
-
             try
             {
-                var steps = ReadStepsFromGrid();
                 await _dataService.SaveAsync(path, steps).ConfigureAwait(false);
                 AppendLog("保存: " + path);
                 RefreshFileList();
@@ -259,10 +293,15 @@ namespace AutoClickScenarioTool
             }
             else
             {
-                _scriptService.Pause();
-                _isPaused = true;
-                btnPause.Text = "再開";
+                _script_service_pause();
             }
+        }
+
+        private void _script_service_pause()
+        {
+            _scriptService.Pause();
+            _isPaused = true;
+            btnPause.Text = "再開";
         }
 
         private void btnStop_Click(object sender, EventArgs e)
@@ -276,29 +315,47 @@ namespace AutoClickScenarioTool
             btnPause.Text = "一時停止";
             if (dgvScenario.Rows.Count > 0)
             {
-                try { dgvScenario.CurrentCell = dgvScenario.Rows[0].Cells[1]; } catch { }
+                _script_service_pause();
+                // bring app front when user requests pause
+                try { SetForegroundWindow(this.Handle); } catch { }
             }
         }
 
         private void ScriptStopped()
         {
+            // bring app front
+            try { SetForegroundWindow(this.Handle); } catch { }
             btnStart.Enabled = true;
             btnPause.Enabled = false;
             btnStop.Enabled = false;
             _isPaused = false;
             btnPause.Text = "一時停止";
+            // focus first row if present
+            if (dgvScenario.Rows.Count > 0)
+            {
+                try { dgvScenario.CurrentCell = dgvScenario.Rows[0].Cells[1]; dgvScenario.Focus(); } catch { }
+            }
             AppendLog("スクリプト停止");
+        }
+
+        private void HandlePaused(int idx)
+        {
+            try { SetForegroundWindow(this.Handle); } catch { }
+            if (idx >= 0 && idx < dgvScenario.Rows.Count)
+            {
+                try
+                {
+                    dgvScenario.CurrentCell = dgvScenario.Rows[idx].Cells[1];
+                    dgvScenario.Focus();
+                }
+                catch { }
+            }
         }
 
         private void dgvScenario_RowsChanged(object sender, EventArgs e)
         {
             RefreshNoColumn();
         }
-
-        [DllImport("user32.dll")]
-        private static extern short GetAsyncKeyState(int vKey);
-
-        private const int VK_LBUTTON = 0x01;
 
         private async void btnCapture_Click(object sender, EventArgs e)
         {
@@ -339,9 +396,18 @@ namespace AutoClickScenarioTool
                         return;
                     }
 
+                    // ウィンドウを前面に戻す
+                    SetForegroundWindow(this.Handle);
+                    // セルに座標を書き込む
                     dgvScenario.Rows[rowIndex].Cells[targetCol].Value = $"{p.X},{p.Y}";
                     RefreshNoColumn();
                     AppendLog($"座標取得: {p.X},{p.Y}");
+                    // フォーカスを遅延で強制復帰
+                    BeginInvoke(new Action(() => {
+                        dgvScenario.CurrentCell = dgvScenario.Rows[rowIndex].Cells[targetCol];
+                        dgvScenario.Select();
+                        dgvScenario.Focus();
+                    }));
                 }));
             }).ConfigureAwait(false);
         }

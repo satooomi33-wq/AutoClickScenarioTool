@@ -33,7 +33,6 @@
         private System.Windows.Forms.TextBox txtDataFolder;
         private System.Windows.Forms.Button btnBrowse;
         private System.Windows.Forms.ComboBox cmbFiles;
-        private System.Windows.Forms.Button btnLoad;
         private System.Windows.Forms.Button btnSave;
         private System.Windows.Forms.DataGridView dgvScenario;
         private System.Windows.Forms.TextBox txtLog;
@@ -47,7 +46,6 @@
             txtDataFolder = new TextBox();
             btnBrowse = new Button();
             cmbFiles = new ComboBox();
-            btnLoad = new Button();
             btnSave = new Button();
             dgvScenario = new DataGridView();
             txtLog = new TextBox();
@@ -56,37 +54,40 @@
             // 
             // btnStart
             // 
+            btnStart.Font = new Font("Segoe UI Symbol", 9.857143F);
             btnStart.Location = new Point(10, 129);
             btnStart.Name = "btnStart";
             btnStart.Size = new Size(75, 45);
             btnStart.TabIndex = 0;
-            btnStart.Text = "実行";
+            btnStart.Text = "▶";
             btnStart.UseVisualStyleBackColor = true;
             btnStart.Click += btnStart_Click;
             // 
             // btnPause
             // 
+            btnPause.Font = new Font("Segoe UI Symbol", 9.857143F);
             btnPause.Location = new Point(91, 129);
             btnPause.Name = "btnPause";
             btnPause.Size = new Size(75, 45);
             btnPause.TabIndex = 1;
-            btnPause.Text = "一時停止";
+            btnPause.Text = "⏸";
             btnPause.UseVisualStyleBackColor = true;
             btnPause.Click += btnPause_Click;
             // 
             // btnStop
             // 
+            btnStop.Font = new Font("Segoe UI Symbol", 9.857143F);
             btnStop.Location = new Point(172, 129);
             btnStop.Name = "btnStop";
             btnStop.Size = new Size(75, 45);
             btnStop.TabIndex = 2;
-            btnStop.Text = "停止";
+            btnStop.Text = "⏹";
             btnStop.UseVisualStyleBackColor = true;
             btnStop.Click += btnStop_Click;
             // 
             // btnCapture
             // 
-            btnCapture.Location = new Point(253, 129);
+            btnCapture.Location = new Point(678, 130);
             btnCapture.Name = "btnCapture";
             btnCapture.Size = new Size(110, 45);
             btnCapture.TabIndex = 3;
@@ -113,23 +114,13 @@
             // 
             // cmbFiles
             // 
-            cmbFiles.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbFiles.FormattingEnabled = true;
             cmbFiles.Location = new Point(11, 67);
             cmbFiles.Name = "cmbFiles";
             cmbFiles.Size = new Size(300, 38);
             cmbFiles.TabIndex = 6;
             cmbFiles.SelectedIndexChanged += cmbFiles_SelectedIndexChanged;
-            // 
-            // btnLoad
-            // 
-            btnLoad.Location = new Point(331, 63);
-            btnLoad.Name = "btnLoad";
-            btnLoad.Size = new Size(156, 42);
-            btnLoad.TabIndex = 7;
-            btnLoad.Text = "読み込み";
-            btnLoad.UseVisualStyleBackColor = true;
-            btnLoad.Click += btnLoad_Click;
+            cmbFiles.TextChanged += cmbFiles_TextChanged;
             // 
             // btnSave
             // 
@@ -172,7 +163,6 @@
             Controls.Add(txtLog);
             Controls.Add(dgvScenario);
             Controls.Add(btnSave);
-            Controls.Add(btnLoad);
             Controls.Add(cmbFiles);
             Controls.Add(btnBrowse);
             Controls.Add(txtDataFolder);
