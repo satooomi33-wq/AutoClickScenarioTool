@@ -21,12 +21,32 @@ namespace AutoClickScenarioTool
         public Form1()
         {
             InitializeComponent();
-
             _scriptService = new ScriptService(_inputService);
             _scriptService.OnLog += s => AppendLog(s);
             _scriptService.OnStopped += () => Invoke(new Action(ScriptStopped));
 
             CreateGridColumns();
+            // プロジェクト直下のDataを優先し、なければbin配下を使う
+            try
+            {
+                // bin配下から2階層上がプロジェクトルート想定
+                var exeDir = AppDomain.CurrentDomain.BaseDirectory;
+                var projDir = Path.GetFullPath(Path.Combine(exeDir, "..", "..", ".."));
+                var projData = Path.Combine(projDir, "Data");
+                if (Directory.Exists(projData) && Directory.EnumerateFiles(projData, "*.json").Any())
+                {
+                    txtDataFolder.Text = projData;
+                }
+                else
+                {
+                    var binData = Path.Combine(exeDir, "Data");
+                    if (!Directory.Exists(binData))
+                        Directory.CreateDirectory(binData);
+                    txtDataFolder.Text = binData;
+                }
+            }
+            catch { /* ignore */ }
+
             RefreshFileList();
         }
 
@@ -174,6 +194,7 @@ namespace AutoClickScenarioTool
             RefreshNoColumn();
         }
 
+
         private List<ScenarioStep> ReadStepsFromGrid()
         {
             var list = new List<ScenarioStep>();
@@ -202,12 +223,6 @@ namespace AutoClickScenarioTool
         {
             try
             {
-                if (_scriptService.IsRunning)
-                {
-                    AppendLog("既に実行中です。");
-                    return;
-                }
-
                 var steps = ReadStepsFromGrid();
                 if (steps.Count == 0)
                 {

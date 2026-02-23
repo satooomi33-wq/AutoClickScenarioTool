@@ -1,0 +1,5 @@
+[
+  { "Delay": 220, "Positions": [ "44,88", "48,92" ] },
+  { "Delay": 800, "Positions": [ "500,200" ] },
+  { "Delay": 100, "Positions": [ "250,250" ] }
+]
