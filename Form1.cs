@@ -119,7 +119,10 @@ namespace AutoClickScenarioTool
                 if (Directory.Exists(folder))
                 {
                     foreach (var f in _dataService.ListJsonFiles(folder))
-                        cmbFiles.Items.Add(f);
+                    {
+                        var name = Path.GetFileNameWithoutExtension(f);
+                        cmbFiles.Items.Add(name);
+                    }
                 }
             }
             catch (Exception ex)
@@ -153,6 +156,8 @@ namespace AutoClickScenarioTool
             var folder = txtDataFolder.Text;
             var fileName = cmbFiles.Text?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(folder) || string.IsNullOrWhiteSpace(fileName)) return;
+            if (!fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                fileName += ".json";
             var path = Path.Combine(folder, fileName);
             if (!File.Exists(path)) return;
             try
@@ -184,6 +189,8 @@ namespace AutoClickScenarioTool
                 MessageBox.Show("ファイル名を入力してください。", "情報", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
+            if (!fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                fileName += ".json";
             string path = Path.Combine(folder, fileName);
 
             var steps = ReadStepsFromGrid();
@@ -289,7 +296,6 @@ namespace AutoClickScenarioTool
             {
                 _scriptService.Resume();
                 _isPaused = false;
-                btnPause.Text = "一時停止";
             }
             else
             {
@@ -301,7 +307,6 @@ namespace AutoClickScenarioTool
         {
             _scriptService.Pause();
             _isPaused = true;
-            btnPause.Text = "再開";
         }
 
         private void btnStop_Click(object sender, EventArgs e)
@@ -312,7 +317,6 @@ namespace AutoClickScenarioTool
             btnPause.Enabled = false;
             btnStop.Enabled = false;
             _isPaused = false;
-            btnPause.Text = "一時停止";
             if (dgvScenario.Rows.Count > 0)
             {
                 _script_service_pause();
@@ -326,10 +330,9 @@ namespace AutoClickScenarioTool
             // bring app front
             try { SetForegroundWindow(this.Handle); } catch { }
             btnStart.Enabled = true;
-            btnPause.Enabled = false;
-            btnStop.Enabled = false;
+            btnPause.Enabled = true;
+            btnStop.Enabled = true;
             _isPaused = false;
-            btnPause.Text = "一時停止";
             // focus first row if present
             if (dgvScenario.Rows.Count > 0)
             {
@@ -353,6 +356,36 @@ namespace AutoClickScenarioTool
         }
 
         private void dgvScenario_RowsChanged(object sender, EventArgs e)
+        {
+            RefreshNoColumn();
+        }
+
+        // セル編集後、最下行にデータが入ったら新たな空行を追加
+        private void dgvScenario_CellValueChanged(object sender, DataGridViewCellEventArgs e)
+        {
+            // NO列を常に更新
+            RefreshNoColumn();
+
+            // 編集された行が最下行（新規行の直前）かつ、何か値が入った場合
+            if (e.RowIndex == dgvScenario.Rows.Count - 2 && !dgvScenario.Rows[e.RowIndex].IsNewRow)
+            {
+                bool hasData = false;
+                for (int c = 1; c < dgvScenario.ColumnCount; c++)
+                {
+                    var v = dgvScenario.Rows[e.RowIndex].Cells[c].Value;
+                    if (v != null && !string.IsNullOrWhiteSpace(v.ToString())) { hasData = true; break; }
+                }
+                if (hasData && dgvScenario.AllowUserToAddRows && dgvScenario.Rows[dgvScenario.Rows.Count - 1].IsNewRow)
+                {
+                    // 編集確定を促すことで新規行が追加される
+                    dgvScenario.EndEdit();
+                }
+            }
+
+        }
+
+        // ユーザーが新規行を追加したときもNO列を更新
+        private void dgvScenario_UserAddedRow(object sender, DataGridViewRowEventArgs e)
         {
             RefreshNoColumn();
         }
@@ -399,9 +432,18 @@ namespace AutoClickScenarioTool
                     // ウィンドウを前面に戻す
                     SetForegroundWindow(this.Handle);
                     // セルに座標を書き込む
+                    // 編集中なら確定
+                    if (dgvScenario.IsCurrentCellInEditMode)
+                        dgvScenario.EndEdit();
                     dgvScenario.Rows[rowIndex].Cells[targetCol].Value = $"{p.X},{p.Y}";
                     RefreshNoColumn();
                     AppendLog($"座標取得: {p.X},{p.Y}");
+                    // 一番下の新規行に値を入れた場合は新たな空行を追加
+                    if (rowIndex == dgvScenario.Rows.Count - 2 && dgvScenario.AllowUserToAddRows)
+                    {
+                        dgvScenario.Rows.Add();
+                        RefreshNoColumn();
+                    }
                     // フォーカスを遅延で強制復帰
                     BeginInvoke(new Action(() => {
                         dgvScenario.CurrentCell = dgvScenario.Rows[rowIndex].Cells[targetCol];

@@ -144,6 +144,8 @@
             dgvScenario.RowsAdded += dgvScenario_RowsChanged;
             dgvScenario.RowsRemoved += dgvScenario_RowsChanged;
             dgvScenario.UserDeletedRow += dgvScenario_RowsChanged;
+            dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
+            dgvScenario.UserAddedRow += dgvScenario_UserAddedRow;
             // 
             // txtLog
             // 
