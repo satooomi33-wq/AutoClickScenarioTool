@@ -29,7 +29,7 @@
         private System.Windows.Forms.Button btnStart;
         private System.Windows.Forms.Button btnPause;
         private System.Windows.Forms.Button btnStop;
-        private System.Windows.Forms.CheckBox btnToggleCapture;
+        
         private System.Windows.Forms.ToolStrip captureToolStrip;
         private System.Windows.Forms.ToolStripButton tsbDisable;
         private System.Windows.Forms.ToolStripButton tsbMouse;
@@ -58,7 +58,6 @@
             btnSave = new Button();
             dgvScenario = new DataGridView();
             txtLog = new TextBox();
-            btnToggleCapture = new CheckBox();
             ((System.ComponentModel.ISupportInitialize)dgvScenario).BeginInit();
             SuspendLayout();
             // 
@@ -188,19 +187,7 @@
             // add toolstrip first
             Controls.Add(captureToolStrip);
 
-            // btnToggleCapture
-            // 
-            btnToggleCapture.Appearance = Appearance.Button;
-            btnToggleCapture.BackColor = SystemColors.Control;
-            btnToggleCapture.Cursor = Cursors.Hand;
-            btnToggleCapture.FlatStyle = FlatStyle.Flat;
-            btnToggleCapture.Location = new Point(1019, 159);
-            btnToggleCapture.Name = "btnToggleCapture";
-            btnToggleCapture.Size = new Size(160, 45);
-            btnToggleCapture.TabIndex = 3;
-            btnToggleCapture.Text = "座標抽出 OFF";
-            btnToggleCapture.TextAlign = ContentAlignment.MiddleCenter;
-            btnToggleCapture.UseVisualStyleBackColor = false;
+            
             // 
             // Form1
             // 
@@ -213,7 +200,6 @@
             Controls.Add(cmbFiles);
             Controls.Add(btnBrowse);
             Controls.Add(txtDataFolder);
-            Controls.Add(btnToggleCapture);
             Controls.Add(btnStop);
             Controls.Add(btnPause);
             Controls.Add(btnStart);

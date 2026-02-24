@@ -927,7 +927,6 @@ namespace AutoClickScenarioTool
         {
             base.OnLoad(e);
             _mainHandle = this.Handle;
-            btnToggleCapture.CheckedChanged += BtnToggleCapture_CheckedChanged;
             // _mouseClickFilter の初期化は不要（フィールド未定義のため）
             _mouseHook = new GlobalMouseHook();
             _mouseHook.OnMouseClick += HandleGlobalMouseClick;
@@ -935,37 +934,7 @@ namespace AutoClickScenarioTool
             LogDisplayInfo();
         }
 
-        private void BtnToggleCapture_CheckedChanged(object? sender, EventArgs e)
-        {
-            _captureMode = btnToggleCapture.Checked;
-            btnToggleCapture.Text = _captureMode ? "座標抽出 ON" : "座標抽出 OFF";
-            try
-            {
-                if (_captureMode)
-                {
-                    btnToggleCapture.BackColor = System.Drawing.Color.FromArgb(144, 238, 144); // lightgreen
-                    btnToggleCapture.ForeColor = System.Drawing.Color.Black;
-                }
-                else
-                {
-                    btnToggleCapture.BackColor = System.Drawing.SystemColors.Control;
-                    btnToggleCapture.ForeColor = System.Drawing.Color.Black;
-                }
-            }
-            catch { }
-            if (_captureMode)
-            {
-                _mouseHook?.Start();
-                AppendLog("座標抽出モード: ON");
-                LogDisplayInfo();
-            }
-            else
-            {
-                _mouseHook?.Stop();
-                AppendLog("座標抽出モード: OFF");
-            }
-
-        }
+        
 
         // グローバルマウスクリック時の座標抽出処理
         public void HandleGlobalMouseClick(int x, int y)
