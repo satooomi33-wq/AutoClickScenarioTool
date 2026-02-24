@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Diagnostics;
+using System.Drawing;
 using System.Windows.Forms;
 using AutoClickScenarioTool.Models;
 using AutoClickScenarioTool.Services;
@@ -217,18 +218,54 @@ namespace AutoClickScenarioTool
                     return;
                 }
 
+                // parse humanize bounds from textboxes (if invalid, show error)
+                int hLower = _defaultSettings?.HumanizeLower ?? 30;
+                int hUpper = _defaultSettings?.HumanizeUpper ?? 100;
+                if (!string.IsNullOrWhiteSpace(txtHumanizeLower.Text))
+                {
+                    if (!int.TryParse(txtHumanizeLower.Text, out hLower) || hLower < 0)
+                    {
+                        MessageBox.Show("擬人化下限は0以上の整数で指定してください", "入力エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+                if (!string.IsNullOrWhiteSpace(txtHumanizeUpper.Text))
+                {
+                    if (!int.TryParse(txtHumanizeUpper.Text, out hUpper) || hUpper < 0)
+                    {
+                        MessageBox.Show("擬人化上限は0以上の整数で指定してください", "入力エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+                if (hUpper < hLower)
+                {
+                    MessageBox.Show("擬人化の上限は下限以上にしてください", "入力エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 var settings = new Models.DefaultSettings
                 {
                     Delay = d,
                     PressDuration = p,
                     HumanizeEnabled = _defaultSettings?.HumanizeEnabled ?? false,
-                    HumanizeLower = _defaultSettings?.HumanizeLower ?? 0,
-                    HumanizeUpper = _defaultSettings?.HumanizeUpper ?? 0
+                    HumanizeLower = hLower,
+                    HumanizeUpper = hUpper
                 };
 
                 btnSaveDefaults.Enabled = false;
                 await _dataService.SaveDefaultsAsync(settings).ConfigureAwait(false);
                 _defaultSettings = settings;
+                // apply to runtime script service if available
+                try
+                {
+                    if (_scriptService != null)
+                    {
+                        _scriptService.HumanizeEnabled = _defaultSettings.HumanizeEnabled;
+                        _scriptService.HumanizeLower = _defaultSettings.HumanizeLower;
+                        _scriptService.HumanizeUpper = _defaultSettings.HumanizeUpper;
+                    }
+                }
+                catch { }
                 try
                 {
                     Invoke(new Action(() =>
@@ -966,6 +1003,23 @@ namespace AutoClickScenarioTool
                 btnPause.Enabled = true;
                 btnStop.Enabled = true;
 
+                // Apply current humanize settings (from defaults/UI) to the script service before starting
+                try
+                {
+                    if (_scriptService != null)
+                    {
+                        _scriptService.HumanizeEnabled = _defaultSettings?.HumanizeEnabled ?? false;
+                        int hl = _defaultSettings?.HumanizeLower ?? 30;
+                        int hu = _defaultSettings?.HumanizeUpper ?? 100;
+                        if (!string.IsNullOrWhiteSpace(txtHumanizeLower.Text) && int.TryParse(txtHumanizeLower.Text, out var tmpL)) hl = tmpL;
+                        if (!string.IsNullOrWhiteSpace(txtHumanizeUpper.Text) && int.TryParse(txtHumanizeUpper.Text, out var tmpU)) hu = tmpU;
+                        // normalize
+                        _scriptService.HumanizeLower = Math.Max(0, Math.Min(hl, hu));
+                        _scriptService.HumanizeUpper = Math.Max(0, Math.Max(hl, hu));
+                    }
+                }
+                catch { }
+
                 await _scriptService!.StartAsync(steps, startIndex).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -1114,6 +1168,22 @@ namespace AutoClickScenarioTool
                     {
                         txtDefaultDelay.Text = _defaultSettings.Delay.ToString();
                         txtDefaultPressDuration.Text = _defaultSettings.PressDuration.ToString();
+                        // apply humanize defaults to UI
+                        txtHumanizeLower.Text = _defaultSettings.HumanizeLower.ToString();
+                        txtHumanizeUpper.Text = _defaultSettings.HumanizeUpper.ToString();
+                        // update toggle appearance
+                        UpdateHumanizeButtonAppearance();
+                        // apply to script service
+                        try
+                        {
+                            if (_scriptService != null)
+                            {
+                                _scriptService.HumanizeEnabled = _defaultSettings.HumanizeEnabled;
+                                _scriptService.HumanizeLower = _defaultSettings.HumanizeLower;
+                                _scriptService.HumanizeUpper = _defaultSettings.HumanizeUpper;
+                            }
+                        }
+                        catch { }
                     }));
                 }
                 catch { }
@@ -1122,6 +1192,48 @@ namespace AutoClickScenarioTool
             {
                 AppendLog($"Load defaults failed: {ex.Message}");
             }
+        }
+
+        private void UpdateHumanizeButtonAppearance()
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(UpdateHumanizeButtonAppearance));
+                    return;
+                }
+                if (_defaultSettings != null && _defaultSettings.HumanizeEnabled)
+                {
+                    btnToggleHumanize.Text = "擬人化: ON";
+                    btnToggleHumanize.BackColor = System.Drawing.Color.LightGreen;
+                }
+                else
+                {
+                    btnToggleHumanize.Text = "擬人化: OFF";
+                    btnToggleHumanize.BackColor = System.Drawing.SystemColors.Control;
+                }
+            }
+            catch { }
+        }
+
+        private void btnToggleHumanize_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                _defaultSettings.HumanizeEnabled = !_defaultSettings.HumanizeEnabled;
+                // reflect immediately in runtime service
+                try
+                {
+                    if (_scriptService != null)
+                    {
+                        _scriptService.HumanizeEnabled = _defaultSettings.HumanizeEnabled;
+                    }
+                }
+                catch { }
+                UpdateHumanizeButtonAppearance();
+            }
+            catch { }
         }
 
         

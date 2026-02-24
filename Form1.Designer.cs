@@ -303,6 +303,7 @@
             btnToggleHumanize.TabIndex = 3;
             btnToggleHumanize.Text = "擬人化切替";
             btnToggleHumanize.UseVisualStyleBackColor = true;
+            btnToggleHumanize.Click += btnToggleHumanize_Click;
             // 
             // Form1
             // 

@@ -1,4 +1,16 @@
 [
-  { "Delay": 900, "PressDuration": 100, "Actions": [ "1024,768" ] },
-  { "Delay": 200, "PressDuration": 100, "Actions": [ "100,100", "200,200" ] }
+  {
+    "Delay": 900,
+    "PressDuration": 100,
+    "Positions": [
+      "t"
+    ],
+    "Actions": []
+  },
+  {
+    "Delay": 200,
+    "PressDuration": 100,
+    "Positions": [],
+    "Actions": []
+  }
 ]
