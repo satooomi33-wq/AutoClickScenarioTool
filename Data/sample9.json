@@ -1,5 +1,5 @@
 [
-  { "Delay": 150, "PressDuration": 100, "Positions": [ "10,200" ] },
-  { "Delay": 260, "PressDuration": 100, "Positions": [ "20,210", "30,220" ] },
-  { "Delay": 370, "PressDuration": 100, "Positions": [ "40,230" ] }
+  { "Delay": 150, "PressDuration": 100, "Actions": [ "10,200" ] },
+  { "Delay": 260, "PressDuration": 100, "Actions": [ "20,210", "30,220" ] },
+  { "Delay": 370, "PressDuration": 100, "Actions": [ "40,230" ] }
 ]

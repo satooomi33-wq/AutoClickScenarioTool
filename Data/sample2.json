@@ -1,5 +1,5 @@
 [
-  { "Delay": 750, "Positions": [ "50,60" ] },
-  { "Delay": 400, "Positions": [ "300,400", "305,405" ] },
-  { "Delay": 150, "Positions": [ "600,200" ] }
+  { "Delay": 750, "Actions": [ "50,60" ] },
+  { "Delay": 400, "Actions": [ "300,400", "305,405" ] },
+  { "Delay": 150, "Actions": [ "600,200" ] }
 ]

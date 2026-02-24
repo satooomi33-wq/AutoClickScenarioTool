@@ -2,55 +2,55 @@
   {
     "Delay": 500,
     "PressDuration": 100,
-    "Positions": [
+    "Actions": [
       "868,1172"
     ]
   },
   {
     "Delay": 550,
     "PressDuration": 100,
-    "Positions": [
+    "Actions": [
       "1623,1190"
     ]
   },
   {
     "Delay": 500,
     "PressDuration": 100,
-    "Positions": [
+    "Actions": [
       "1896,1189"
     ]
   },
   {
     "Delay": 500,
     "PressDuration": 100,
-    "Positions": [
+    "Actions": [
       "1419,1184"
     ]
   },
   {
     "Delay": 500,
     "PressDuration": 100,
-    "Positions": [
+    "Actions": [
       "619,954"
     ]
   },
   {
     "Delay": 500,
     "PressDuration": 100,
-    "Positions": [
+    "Actions": [
       "646,969"
     ]
   },
   {
     "Delay": 500,
     "PressDuration": 100,
-    "Positions": [
+    "Actions": [
       "1674,1184"
     ]
   },
   {
     "Delay": 0,
     "PressDuration": 100,
-    "Positions": []
+    "Actions": []
   }
 ]
