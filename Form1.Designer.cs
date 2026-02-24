@@ -119,7 +119,7 @@
             captureToolStrip.Items.AddRange(new ToolStripItem[] { tsbDisable, tsbMouse, tsbKey, tslCaptureStatus });
             captureToolStrip.Location = new Point(0, 0);
             captureToolStrip.Name = "captureToolStrip";
-            captureToolStrip.Size = new Size(1211, 40);
+            captureToolStrip.Size = new Size(1273, 40);
             captureToolStrip.TabIndex = 100;
             captureToolStrip.Text = "captureToolStrip";
             // 
@@ -157,7 +157,7 @@
             // 
             // txtDataFolder
             // 
-            txtDataFolder.Location = new Point(12, 51);
+            txtDataFolder.Location = new Point(12, 50);
             txtDataFolder.Name = "txtDataFolder";
             txtDataFolder.Size = new Size(600, 35);
             txtDataFolder.TabIndex = 4;
@@ -175,7 +175,7 @@
             // cmbFiles
             // 
             cmbFiles.FormattingEnabled = true;
-            cmbFiles.Location = new Point(699, 47);
+            cmbFiles.Location = new Point(699, 43);
             cmbFiles.Name = "cmbFiles";
             cmbFiles.Size = new Size(367, 38);
             cmbFiles.TabIndex = 6;
@@ -184,7 +184,7 @@
             // 
             // btnSave
             // 
-            btnSave.Location = new Point(1072, 43);
+            btnSave.Location = new Point(1072, 47);
             btnSave.Name = "btnSave";
             btnSave.Size = new Size(85, 42);
             btnSave.TabIndex = 8;
@@ -195,11 +195,11 @@
             // dgvScenario
             // 
             dgvScenario.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dgvScenario.Location = new Point(12, 180);
+            dgvScenario.Location = new Point(12, 187);
             dgvScenario.Name = "dgvScenario";
             dgvScenario.RowHeadersWidth = 72;
             dgvScenario.RowTemplate.Height = 25;
-            dgvScenario.Size = new Size(1167, 544);
+            dgvScenario.Size = new Size(1167, 537);
             dgvScenario.TabIndex = 9;
             dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
             dgvScenario.RowsAdded += dgvScenario_RowsChanged;
@@ -209,7 +209,7 @@
             // 
             // txtLog
             // 
-            txtLog.Location = new Point(12, 746);
+            txtLog.Location = new Point(10, 746);
             txtLog.Multiline = true;
             txtLog.Name = "txtLog";
             txtLog.ReadOnly = true;
@@ -217,9 +217,9 @@
             txtLog.Size = new Size(1167, 222);
             txtLog.TabIndex = 10;
             // 
-            // lblHumanizeRange
+            // lblDefaultDelay
             // 
-            lblHumanizeRange.Location = new Point(477, 92);
+            lblDefaultDelay.Location = new Point(531, 92);
             lblDefaultDelay.Name = "lblDefaultDelay";
             lblDefaultDelay.Size = new Size(180, 35);
             lblDefaultDelay.TabIndex = 101;
@@ -227,7 +227,7 @@
             // 
             // txtDefaultDelay
             // 
-            txtHumanizeLower.Location = new Point(663, 90);
+            txtDefaultDelay.Location = new Point(717, 90);
             txtDefaultDelay.Name = "txtDefaultDelay";
             txtDefaultDelay.Size = new Size(60, 35);
             txtDefaultDelay.TabIndex = 11;
@@ -235,15 +235,15 @@
             // 
             // lblDefaultPressDuration
             // 
-            txtHumanizeUpper.Location = new Point(729, 90);
+            lblDefaultPressDuration.Location = new Point(799, 92);
             lblDefaultPressDuration.Name = "lblDefaultPressDuration";
-            lblDefaultPressDuration.Size = new Size(224, 33);
+            lblDefaultPressDuration.Size = new Size(180, 33);
             lblDefaultPressDuration.TabIndex = 102;
             lblDefaultPressDuration.Text = "デフォルト 押下時間(ms)";
             // 
             // txtDefaultPressDuration
             // 
-            btnToggleHumanize.Location = new Point(800, 89);
+            txtDefaultPressDuration.Location = new Point(985, 90);
             txtDefaultPressDuration.Name = "txtDefaultPressDuration";
             txtDefaultPressDuration.Size = new Size(66, 35);
             txtDefaultPressDuration.TabIndex = 12;
@@ -251,19 +251,48 @@
             // 
             // btnSaveDefaults
             // 
-            btnSaveDefaults.Location = new Point(1052, 135);
+            btnSaveDefaults.Location = new Point(1057, 90);
             btnSaveDefaults.Name = "btnSaveDefaults";
-            btnSaveDefaults.Size = new Size(127, 35);
+            btnSaveDefaults.Size = new Size(100, 35);
             btnSaveDefaults.TabIndex = 13;
             btnSaveDefaults.Text = "初期値保存";
             btnSaveDefaults.UseVisualStyleBackColor = true;
             btnSaveDefaults.Click += btnSaveDefaults_Click;
             // 
+            // lblHumanizeRange
+            // 
+            lblHumanizeRange.Location = new Point(650, 92);
+            lblHumanizeRange.Name = "lblHumanizeRange";
+            lblHumanizeRange.Size = new Size(100, 23);
+            lblHumanizeRange.TabIndex = 0;
+            lblHumanizeRange.Text = "擬人化範囲(ms±)";
+            // 
+            // txtHumanizeLower
+            // 
+            txtHumanizeLower.Location = new Point(760, 90);
+            txtHumanizeLower.Name = "txtHumanizeLower";
+            txtHumanizeLower.Size = new Size(60, 35);
+            txtHumanizeLower.TabIndex = 0;
+            // 
+            // txtHumanizeUpper
+            // 
+            txtHumanizeUpper.Location = new Point(830, 90);
+            txtHumanizeUpper.Name = "txtHumanizeUpper";
+            txtHumanizeUpper.Size = new Size(60, 35);
+            txtHumanizeUpper.TabIndex = 0;
+            // 
+            // btnToggleHumanize
+            // 
+            btnToggleHumanize.Location = new Point(900, 90);
+            btnToggleHumanize.Name = "btnToggleHumanize";
+            btnToggleHumanize.Size = new Size(100, 35);
+            btnToggleHumanize.TabIndex = 0;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(12F, 30F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1211, 980);
+            ClientSize = new Size(1273, 980);
             Controls.Add(captureToolStrip);
             Controls.Add(txtLog);
             Controls.Add(dgvScenario);
@@ -276,6 +305,10 @@
             Controls.Add(lblDefaultPressDuration);
             Controls.Add(txtDefaultPressDuration);
             Controls.Add(btnSaveDefaults);
+            Controls.Add(lblHumanizeRange);
+            Controls.Add(txtHumanizeLower);
+            Controls.Add(txtHumanizeUpper);
+            Controls.Add(btnToggleHumanize);
             Controls.Add(btnStop);
             Controls.Add(btnPause);
             Controls.Add(btnStart);

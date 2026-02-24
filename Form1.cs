@@ -141,6 +141,80 @@ namespace AutoClickScenarioTool
             _ = LoadAndApplyDefaultsAsync();
             // ensure there's at least one editable row on startup
             try { EnsureGridHasRow(); } catch { }
+
+            // defer positioning until the form is shown so layout/anchors are applied
+            this.Shown += Form1_Shown;
+        }
+
+        private void Form1_Shown(object? sender, EventArgs e)
+        {
+            // Ensure form is visible on primary screen first. If it's mostly off-screen,
+            // move it to the primary screen center (helps when user closed on other monitor).
+            try
+            {
+                var primary = Screen.PrimaryScreen?.WorkingArea;
+                if (primary != null)
+                {
+                    var inter = Rectangle.Intersect(this.Bounds, primary.Value);
+                    if (inter.Width < 50 || inter.Height < 50)
+                    {
+                        int x = primary.Value.Left + Math.Max(0, (primary.Value.Width - this.Width) / 2);
+                        int y = primary.Value.Top + 40;
+                        this.StartPosition = FormStartPosition.Manual;
+                        this.Location = new System.Drawing.Point(x, y);
+                    }
+                }
+            }
+            catch { }
+
+            // After ensuring the form is on-screen, position controls relative to the file selector.
+            try { PositionControlsRelativeToFileSelector(); } catch { }
+        }
+
+        private void PositionControlsRelativeToFileSelector()
+        {
+            try
+            {
+                if (cmbFiles == null) return;
+                // target Y near top under toolbar/file selector, but at least 8px
+                var baseY = Math.Max(8, cmbFiles.Location.Y + cmbFiles.Height + 6);
+
+                // Build a list of controls in desired display order
+                var controls = new List<Control>();
+                if (lblDefaultDelay != null) controls.Add(lblDefaultDelay);
+                if (txtDefaultDelay != null) controls.Add(txtDefaultDelay);
+                if (lblDefaultPressDuration != null) controls.Add(lblDefaultPressDuration);
+                if (txtDefaultPressDuration != null) controls.Add(txtDefaultPressDuration);
+                if (btnSaveDefaults != null) controls.Add(btnSaveDefaults);
+                if (lblHumanizeRange != null) controls.Add(lblHumanizeRange);
+                if (txtHumanizeLower != null) controls.Add(txtHumanizeLower);
+                if (txtHumanizeUpper != null) controls.Add(txtHumanizeUpper);
+                if (btnToggleHumanize != null) controls.Add(btnToggleHumanize);
+
+                // compute total width including spacing (use PreferredSize when Width unset)
+                int spacing = 10;
+                int totalW = 0;
+                foreach (var c in controls)
+                {
+                    int w = c.Width > 0 ? c.Width : c.PreferredSize.Width;
+                    totalW += w + spacing;
+                }
+                if (totalW > 0) totalW -= spacing; // remove trailing spacing
+
+                int startX = Math.Max(8, (this.ClientSize.Width - totalW) / 2);
+
+                int curX = startX;
+                foreach (var c in controls)
+                {
+                    int w = c.Width > 0 ? c.Width : c.PreferredSize.Width;
+                    c.Location = new System.Drawing.Point(curX, baseY);
+                    // keep control visibility as-is, avoid forcing Z-order to reduce flicker
+                    // but ensure it's visible
+                    if (!c.Visible) c.Visible = true;
+                    curX += w + spacing;
+                }
+            }
+            catch { }
         }
 
         // Designer-referenced handlers: add simple implementations to avoid CS1061
@@ -180,7 +254,16 @@ namespace AutoClickScenarioTool
                     MessageBox.Show("押下時間は0以上の整数で指定してください", "入力エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
-                var settings = new Models.DefaultSettings { Delay = d, PressDuration = p };
+
+                var settings = new Models.DefaultSettings
+                {
+                    Delay = d,
+                    PressDuration = p,
+                    HumanizeEnabled = _defaultSettings?.HumanizeEnabled ?? false,
+                    HumanizeLower = _defaultSettings?.HumanizeLower ?? 0,
+                    HumanizeUpper = _defaultSettings?.HumanizeUpper ?? 0
+                };
+
                 btnSaveDefaults.Enabled = false;
                 await _dataService.SaveDefaultsAsync(settings).ConfigureAwait(false);
                 _defaultSettings = settings;
