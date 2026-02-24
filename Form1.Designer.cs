@@ -48,23 +48,9 @@
             btnSave = new Button();
             dgvScenario = new DataGridView();
             txtLog = new TextBox();
-            btnToggleCapture = new System.Windows.Forms.CheckBox();
+            btnToggleCapture = new CheckBox();
             ((System.ComponentModel.ISupportInitialize)dgvScenario).BeginInit();
             SuspendLayout();
-            // 
-            // btnToggleCapture
-            // 
-            btnToggleCapture.Appearance = Appearance.Button;
-            btnToggleCapture.FlatStyle = FlatStyle.Flat;
-            btnToggleCapture.FlatAppearance.BorderSize = 1;
-            btnToggleCapture.Cursor = Cursors.Hand;
-            btnToggleCapture.BackColor = System.Drawing.SystemColors.Control;
-            btnToggleCapture.Location = new Point(678, 130);
-            btnToggleCapture.Name = "btnToggleCapture";
-            btnToggleCapture.Size = new Size(110, 45);
-            btnToggleCapture.TabIndex = 3;
-            btnToggleCapture.Text = "座標抽出 OFF";
-            btnToggleCapture.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // btnStart
             // 
@@ -143,7 +129,7 @@
             dgvScenario.Name = "dgvScenario";
             dgvScenario.RowHeadersWidth = 72;
             dgvScenario.RowTemplate.Height = 25;
-            dgvScenario.Size = new Size(776, 645);
+            dgvScenario.Size = new Size(1167, 645);
             dgvScenario.TabIndex = 9;
             dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
             dgvScenario.RowsAdded += dgvScenario_RowsChanged;
@@ -158,14 +144,28 @@
             txtLog.Name = "txtLog";
             txtLog.ReadOnly = true;
             txtLog.ScrollBars = ScrollBars.Vertical;
-            txtLog.Size = new Size(776, 88);
+            txtLog.Size = new Size(1167, 88);
             txtLog.TabIndex = 10;
+            // 
+            // btnToggleCapture
+            // 
+            btnToggleCapture.Appearance = Appearance.Button;
+            btnToggleCapture.BackColor = SystemColors.Control;
+            btnToggleCapture.Cursor = Cursors.Hand;
+            btnToggleCapture.FlatStyle = FlatStyle.Flat;
+            btnToggleCapture.Location = new Point(1019, 129);
+            btnToggleCapture.Name = "btnToggleCapture";
+            btnToggleCapture.Size = new Size(160, 45);
+            btnToggleCapture.TabIndex = 3;
+            btnToggleCapture.Text = "座標抽出 OFF";
+            btnToggleCapture.TextAlign = ContentAlignment.MiddleCenter;
+            btnToggleCapture.UseVisualStyleBackColor = false;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(12F, 30F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(838, 980);
+            ClientSize = new Size(1211, 980);
             Controls.Add(txtLog);
             Controls.Add(dgvScenario);
             Controls.Add(btnSave);

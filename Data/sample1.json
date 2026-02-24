@@ -1,5 +1,56 @@
 [
-  { "Delay": 500, "PressDuration": 100, "Positions": [ "100,200", "150,250" ] },
-  { "Delay": 300, "PressDuration": 100, "Positions": [ "200,300" ] },
-  { "Delay": 200, "PressDuration": 100, "Positions": [ "400,120", "410,130", "420,140" ] }
+  {
+    "Delay": 500,
+    "PressDuration": 100,
+    "Positions": [
+      "868,1172"
+    ]
+  },
+  {
+    "Delay": 550,
+    "PressDuration": 100,
+    "Positions": [
+      "1623,1190"
+    ]
+  },
+  {
+    "Delay": 500,
+    "PressDuration": 100,
+    "Positions": [
+      "1896,1189"
+    ]
+  },
+  {
+    "Delay": 500,
+    "PressDuration": 100,
+    "Positions": [
+      "1419,1184"
+    ]
+  },
+  {
+    "Delay": 500,
+    "PressDuration": 100,
+    "Positions": [
+      "619,954"
+    ]
+  },
+  {
+    "Delay": 500,
+    "PressDuration": 100,
+    "Positions": [
+      "646,969"
+    ]
+  },
+  {
+    "Delay": 500,
+    "PressDuration": 100,
+    "Positions": [
+      "1674,1184"
+    ]
+  },
+  {
+    "Delay": 0,
+    "PressDuration": 100,
+    "Positions": []
+  }
 ]
