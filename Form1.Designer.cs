@@ -49,6 +49,7 @@
         private System.Windows.Forms.Label lblHumanizeRange;
         private System.Windows.Forms.TextBox txtHumanizeLower;
         private System.Windows.Forms.TextBox txtHumanizeUpper;
+        private System.Windows.Forms.Label lblHumanizeSep;
         private System.Windows.Forms.Button btnToggleHumanize;
 
         private void InitializeComponent()
@@ -75,6 +76,7 @@
             lblHumanizeRange = new Label();
             txtHumanizeLower = new TextBox();
             txtHumanizeUpper = new TextBox();
+            lblHumanizeSep = new Label();
             btnToggleHumanize = new Button();
             captureToolStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvScenario).BeginInit();
@@ -82,10 +84,10 @@
             // 
             // btnStart
             // 
-            btnStart.Font = new Font("Segoe UI Symbol", 9.857143F);
-            btnStart.Location = new Point(10, 129);
+            btnStart.Font = new Font("Segoe UI Symbol", 8.142858F);
+            btnStart.Location = new Point(10, 137);
             btnStart.Name = "btnStart";
-            btnStart.Size = new Size(75, 45);
+            btnStart.Size = new Size(75, 37);
             btnStart.TabIndex = 0;
             btnStart.Text = "▶";
             btnStart.UseVisualStyleBackColor = true;
@@ -93,10 +95,10 @@
             // 
             // btnPause
             // 
-            btnPause.Font = new Font("Segoe UI Symbol", 9.857143F);
-            btnPause.Location = new Point(91, 129);
+            btnPause.Font = new Font("Segoe UI Symbol", 8.142858F);
+            btnPause.Location = new Point(91, 137);
             btnPause.Name = "btnPause";
-            btnPause.Size = new Size(75, 45);
+            btnPause.Size = new Size(75, 37);
             btnPause.TabIndex = 1;
             btnPause.Text = "⏸";
             btnPause.UseVisualStyleBackColor = true;
@@ -104,10 +106,10 @@
             // 
             // btnStop
             // 
-            btnStop.Font = new Font("Segoe UI Symbol", 9.857143F);
-            btnStop.Location = new Point(172, 129);
+            btnStop.Font = new Font("Segoe UI Symbol", 8.142858F);
+            btnStop.Location = new Point(172, 137);
             btnStop.Name = "btnStop";
-            btnStop.Size = new Size(75, 45);
+            btnStop.Size = new Size(75, 37);
             btnStop.TabIndex = 2;
             btnStop.Text = "⏹";
             btnStop.UseVisualStyleBackColor = true;
@@ -119,7 +121,7 @@
             captureToolStrip.Items.AddRange(new ToolStripItem[] { tsbDisable, tsbMouse, tsbKey, tslCaptureStatus });
             captureToolStrip.Location = new Point(0, 0);
             captureToolStrip.Name = "captureToolStrip";
-            captureToolStrip.Size = new Size(1273, 40);
+            captureToolStrip.Size = new Size(1227, 40);
             captureToolStrip.TabIndex = 100;
             captureToolStrip.Text = "captureToolStrip";
             // 
@@ -184,7 +186,7 @@
             // 
             // btnSave
             // 
-            btnSave.Location = new Point(1072, 47);
+            btnSave.Location = new Point(1072, 39);
             btnSave.Name = "btnSave";
             btnSave.Size = new Size(85, 42);
             btnSave.TabIndex = 8;
@@ -199,7 +201,7 @@
             dgvScenario.Name = "dgvScenario";
             dgvScenario.RowHeadersWidth = 72;
             dgvScenario.RowTemplate.Height = 25;
-            dgvScenario.Size = new Size(1167, 537);
+            dgvScenario.Size = new Size(1202, 537);
             dgvScenario.TabIndex = 9;
             dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
             dgvScenario.RowsAdded += dgvScenario_RowsChanged;
@@ -214,12 +216,12 @@
             txtLog.Name = "txtLog";
             txtLog.ReadOnly = true;
             txtLog.ScrollBars = ScrollBars.Vertical;
-            txtLog.Size = new Size(1167, 222);
+            txtLog.Size = new Size(1204, 222);
             txtLog.TabIndex = 10;
             // 
             // lblDefaultDelay
             // 
-            lblDefaultDelay.Location = new Point(531, 92);
+            lblDefaultDelay.Location = new Point(566, 93);
             lblDefaultDelay.Name = "lblDefaultDelay";
             lblDefaultDelay.Size = new Size(180, 35);
             lblDefaultDelay.TabIndex = 101;
@@ -227,7 +229,7 @@
             // 
             // txtDefaultDelay
             // 
-            txtDefaultDelay.Location = new Point(717, 90);
+            txtDefaultDelay.Location = new Point(752, 90);
             txtDefaultDelay.Name = "txtDefaultDelay";
             txtDefaultDelay.Size = new Size(60, 35);
             txtDefaultDelay.TabIndex = 11;
@@ -235,7 +237,7 @@
             // 
             // lblDefaultPressDuration
             // 
-            lblDefaultPressDuration.Location = new Point(799, 92);
+            lblDefaultPressDuration.Location = new Point(825, 93);
             lblDefaultPressDuration.Name = "lblDefaultPressDuration";
             lblDefaultPressDuration.Size = new Size(180, 33);
             lblDefaultPressDuration.TabIndex = 102;
@@ -243,7 +245,7 @@
             // 
             // txtDefaultPressDuration
             // 
-            txtDefaultPressDuration.Location = new Point(985, 90);
+            txtDefaultPressDuration.Location = new Point(1011, 91);
             txtDefaultPressDuration.Name = "txtDefaultPressDuration";
             txtDefaultPressDuration.Size = new Size(66, 35);
             txtDefaultPressDuration.TabIndex = 12;
@@ -251,9 +253,9 @@
             // 
             // btnSaveDefaults
             // 
-            btnSaveDefaults.Location = new Point(1057, 90);
+            btnSaveDefaults.Location = new Point(1083, 92);
             btnSaveDefaults.Name = "btnSaveDefaults";
-            btnSaveDefaults.Size = new Size(100, 35);
+            btnSaveDefaults.Size = new Size(131, 38);
             btnSaveDefaults.TabIndex = 13;
             btnSaveDefaults.Text = "初期値保存";
             btnSaveDefaults.UseVisualStyleBackColor = true;
@@ -261,38 +263,46 @@
             // 
             // lblHumanizeRange
             // 
-            lblHumanizeRange.Location = new Point(650, 92);
+            lblHumanizeRange.Location = new Point(12, 89);
             lblHumanizeRange.Name = "lblHumanizeRange";
-            lblHumanizeRange.Size = new Size(100, 23);
+            lblHumanizeRange.Size = new Size(187, 42);
             lblHumanizeRange.TabIndex = 0;
             lblHumanizeRange.Text = "擬人化範囲(ms±)";
             // 
             // txtHumanizeLower
             // 
-            txtHumanizeLower.Location = new Point(760, 90);
+            txtHumanizeLower.Location = new Point(205, 91);
             txtHumanizeLower.Name = "txtHumanizeLower";
-            txtHumanizeLower.Size = new Size(60, 35);
+            txtHumanizeLower.Size = new Size(66, 35);
             txtHumanizeLower.TabIndex = 0;
             // 
             // txtHumanizeUpper
             // 
-            txtHumanizeUpper.Location = new Point(830, 90);
+            txtHumanizeUpper.Location = new Point(327, 91);
             txtHumanizeUpper.Name = "txtHumanizeUpper";
             txtHumanizeUpper.Size = new Size(60, 35);
             txtHumanizeUpper.TabIndex = 0;
             // 
+            // lblHumanizeSep
+            // 
+            lblHumanizeSep.Location = new Point(281, 91);
+            lblHumanizeSep.Name = "lblHumanizeSep";
+            lblHumanizeSep.Size = new Size(36, 35);
+            lblHumanizeSep.TabIndex = 0;
+            lblHumanizeSep.Text = "～";
+            // 
             // btnToggleHumanize
             // 
-            btnToggleHumanize.Location = new Point(900, 90);
+            btnToggleHumanize.Location = new Point(393, 92);
             btnToggleHumanize.Name = "btnToggleHumanize";
-            btnToggleHumanize.Size = new Size(100, 35);
+            btnToggleHumanize.Size = new Size(166, 35);
             btnToggleHumanize.TabIndex = 0;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(12F, 30F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1273, 980);
+            ClientSize = new Size(1227, 980);
             Controls.Add(captureToolStrip);
             Controls.Add(txtLog);
             Controls.Add(dgvScenario);
@@ -307,6 +317,7 @@
             Controls.Add(btnSaveDefaults);
             Controls.Add(lblHumanizeRange);
             Controls.Add(txtHumanizeLower);
+            Controls.Add(lblHumanizeSep);
             Controls.Add(txtHumanizeUpper);
             Controls.Add(btnToggleHumanize);
             Controls.Add(btnStop);
