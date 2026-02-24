@@ -46,6 +46,10 @@
         private System.Windows.Forms.Button btnSave;
         public System.Windows.Forms.DataGridView dgvScenario;
         private System.Windows.Forms.TextBox txtLog;
+        private System.Windows.Forms.Label lblHumanizeRange;
+        private System.Windows.Forms.TextBox txtHumanizeLower;
+        private System.Windows.Forms.TextBox txtHumanizeUpper;
+        private System.Windows.Forms.Button btnToggleHumanize;
 
         private void InitializeComponent()
         {
@@ -68,6 +72,10 @@
             lblDefaultPressDuration = new Label();
             txtDefaultPressDuration = new TextBox();
             btnSaveDefaults = new Button();
+            lblHumanizeRange = new Label();
+            txtHumanizeLower = new TextBox();
+            txtHumanizeUpper = new TextBox();
+            btnToggleHumanize = new Button();
             captureToolStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvScenario).BeginInit();
             SuspendLayout();
@@ -191,7 +199,7 @@
             dgvScenario.Name = "dgvScenario";
             dgvScenario.RowHeadersWidth = 72;
             dgvScenario.RowTemplate.Height = 25;
-            dgvScenario.Size = new Size(1167, 679);
+            dgvScenario.Size = new Size(1167, 544);
             dgvScenario.TabIndex = 9;
             dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
             dgvScenario.RowsAdded += dgvScenario_RowsChanged;
@@ -201,17 +209,17 @@
             // 
             // txtLog
             // 
-            txtLog.Location = new Point(12, 910);
+            txtLog.Location = new Point(12, 746);
             txtLog.Multiline = true;
             txtLog.Name = "txtLog";
             txtLog.ReadOnly = true;
             txtLog.ScrollBars = ScrollBars.Vertical;
-            txtLog.Size = new Size(1167, 88);
+            txtLog.Size = new Size(1167, 222);
             txtLog.TabIndex = 10;
             // 
-            // lblDefaultDelay
+            // lblHumanizeRange
             // 
-            lblDefaultDelay.Location = new Point(477, 124);
+            lblHumanizeRange.Location = new Point(477, 92);
             lblDefaultDelay.Name = "lblDefaultDelay";
             lblDefaultDelay.Size = new Size(180, 35);
             lblDefaultDelay.TabIndex = 101;
@@ -219,7 +227,7 @@
             // 
             // txtDefaultDelay
             // 
-            txtDefaultDelay.Location = new Point(663, 123);
+            txtHumanizeLower.Location = new Point(663, 90);
             txtDefaultDelay.Name = "txtDefaultDelay";
             txtDefaultDelay.Size = new Size(60, 35);
             txtDefaultDelay.TabIndex = 11;
@@ -227,7 +235,7 @@
             // 
             // lblDefaultPressDuration
             // 
-            lblDefaultPressDuration.Location = new Point(729, 126);
+            txtHumanizeUpper.Location = new Point(729, 90);
             lblDefaultPressDuration.Name = "lblDefaultPressDuration";
             lblDefaultPressDuration.Size = new Size(224, 33);
             lblDefaultPressDuration.TabIndex = 102;
@@ -235,7 +243,7 @@
             // 
             // txtDefaultPressDuration
             // 
-            txtDefaultPressDuration.Location = new Point(958, 124);
+            btnToggleHumanize.Location = new Point(800, 89);
             txtDefaultPressDuration.Name = "txtDefaultPressDuration";
             txtDefaultPressDuration.Size = new Size(66, 35);
             txtDefaultPressDuration.TabIndex = 12;
@@ -243,7 +251,7 @@
             // 
             // btnSaveDefaults
             // 
-            btnSaveDefaults.Location = new Point(1030, 124);
+            btnSaveDefaults.Location = new Point(1052, 135);
             btnSaveDefaults.Name = "btnSaveDefaults";
             btnSaveDefaults.Size = new Size(127, 35);
             btnSaveDefaults.TabIndex = 13;

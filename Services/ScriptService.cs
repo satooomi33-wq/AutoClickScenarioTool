@@ -20,6 +20,12 @@ namespace AutoClickScenarioTool.Services
         public event Action<int>? OnPaused;
         public event Action? OnStopped;
 
+        // 擬人化設定（外部から設定可能）
+        public bool HumanizeEnabled { get; set; } = false;
+        public int HumanizeLower { get; set; } = 30;
+        public int HumanizeUpper { get; set; } = 100;
+        private readonly Random _rng = new Random();
+
         public ScriptService(InputService input)
         {
             _input = input;
@@ -90,8 +96,27 @@ namespace AutoClickScenarioTool.Services
                             }
                         }
 
-                        // delay
+                        // delay (with optional humanization jitter)
                         var delay = Math.Max(0, step.Delay);
+                        if (HumanizeEnabled && delay > 0)
+                        {
+                            try
+                            {
+                                int lower = Math.Max(0, HumanizeLower);
+                                int upper = Math.Max(lower, HumanizeUpper);
+                                if (upper > 0)
+                                {
+                                    int offset;
+                                    // ensure magnitude >= lower and <= upper (allow negative/positive)
+                                    do
+                                    {
+                                        offset = _rng.Next(-upper, upper + 1);
+                                    } while (Math.Abs(offset) < lower);
+                                    delay = Math.Max(0, delay + offset);
+                                }
+                            }
+                            catch { }
+                        }
                         var sw = System.Diagnostics.Stopwatch.StartNew();
                         while (sw.ElapsedMilliseconds < delay)
                         {
