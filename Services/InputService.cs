@@ -30,6 +30,64 @@ namespace AutoClickScenarioTool.Services
                 Thread.Sleep(8);
             }
         }
+
+        // キー送信: simple conversion to SendKeys format
+        public void SendKey(string keySpec)
+        {
+            try
+            {
+                var send = ConvertToSendKeysFormat(keySpec);
+                if (!string.IsNullOrEmpty(send))
+                    System.Windows.Forms.SendKeys.SendWait(send);
+            }
+            catch { }
+        }
+
+        private string ConvertToSendKeysFormat(string keySpec)
+        {
+            if (string.IsNullOrWhiteSpace(keySpec)) return string.Empty;
+            var parts = keySpec.Split('+');
+            var modifiers = new System.Collections.Generic.List<string>();
+            string main = parts.Last().Trim();
+            for (int i = 0; i < parts.Length - 1; i++)
+            {
+                var m = parts[i].Trim();
+                if (string.Equals(m, "Ctrl", StringComparison.OrdinalIgnoreCase) || string.Equals(m, "Control", StringComparison.OrdinalIgnoreCase)) modifiers.Add("^");
+                else if (string.Equals(m, "Alt", StringComparison.OrdinalIgnoreCase)) modifiers.Add("%");
+                else if (string.Equals(m, "Shift", StringComparison.OrdinalIgnoreCase)) modifiers.Add("+");
+            }
+
+            string mainSend;
+            if (main.Length == 1)
+            {
+                mainSend = main;
+            }
+            else if (int.TryParse(main, out _))
+            {
+                mainSend = main;
+            }
+            else
+            {
+                switch (main.ToUpperInvariant())
+                {
+                    case "ENTER": mainSend = "{ENTER}"; break;
+                    case "TAB": mainSend = "{TAB}"; break;
+                    case "ESC":
+                    case "ESCAPE": mainSend = "{ESC}"; break;
+                    case "BACK":
+                    case "BACKSPACE": mainSend = "{BACKSPACE}"; break;
+                    case "SPACE": mainSend = " "; break;
+                    default:
+                        if (main.StartsWith("F", StringComparison.OrdinalIgnoreCase) && int.TryParse(main.Substring(1), out _))
+                            mainSend = "{" + main.ToUpperInvariant() + "}";
+                        else
+                            mainSend = main;
+                        break;
+                }
+            }
+
+            return string.Join(string.Empty, modifiers) + mainSend;
+        }
     }
 
     public class PositionList

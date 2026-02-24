@@ -13,6 +13,16 @@ namespace AutoClickScenarioTool
 {
     public partial class Form1 : Form
     {
+        private enum CaptureModeState { Disabled, Mouse, Key }
+        private CaptureModeState _captureModeState = CaptureModeState.Disabled;
+        private ToolStrip? _captureToolStrip;
+        private ToolStripButton? _tsbDisable;
+        private ToolStripButton? _tsbMouse;
+        private ToolStripButton? _tsbKey;
+        private ToolStripLabel? _tslCaptureStatus;
+        private GlobalKeyboardHook? _keyboardHook;
+        private DateTime _lastKeyTime = DateTime.MinValue;
+        private string _lastKeyCaptured = string.Empty;
         private readonly DataService _dataService = new DataService();
         private readonly InputService _inputService = new InputService();
         // ...existing code...
@@ -108,6 +118,7 @@ namespace AutoClickScenarioTool
             _script_service_init();
 
             CreateGridColumns();
+            CreateCaptureToolbar();
 
             // プロジェクト直下のDataを優先し、なければbin配下を使う
             try
@@ -266,7 +277,7 @@ namespace AutoClickScenarioTool
             dgvScenario.Columns.Add(colPress);
             for (int i = 1; i <= 10; i++)
             {
-                dgvScenario.Columns.Add(new DataGridViewTextBoxColumn { Name = $"Pos{i}", HeaderText = $"座標{i}", Width = 120 });
+                dgvScenario.Columns.Add(new DataGridViewTextBoxColumn { Name = $"Action{i}", HeaderText = $"アクション{i}", Width = 200 });
             }
             // enable row drag/drop
             dgvScenario.AllowDrop = true;
@@ -274,6 +285,7 @@ namespace AutoClickScenarioTool
             dgvScenario.DragOver += DgvScenario_DragOver;
             dgvScenario.DragDrop += DgvScenario_DragDrop;
             dgvScenario.CellMouseDown += DgvScenario_CellMouseDown;
+            dgvScenario.CellValidating += DgvScenario_CellValidating;
             // context menu
             EnsureRowContextMenu();
         }
@@ -307,6 +319,122 @@ namespace AutoClickScenarioTool
             moveUp.Click += (s, e) => { if (dgvScenario.CurrentCell != null) MoveRow(dgvScenario.CurrentCell.RowIndex, Math.Max(0, dgvScenario.CurrentCell.RowIndex - 1)); };
             moveDown.Click += (s, e) => { if (dgvScenario.CurrentCell != null) MoveRow(dgvScenario.CurrentCell.RowIndex, dgvScenario.CurrentCell.RowIndex + 1); };
             _rowContextMenu.Items.AddRange(new ToolStripItem[] { insertAbove, insertBelow, delete, moveUp, moveDown });
+        }
+
+        private void CreateCaptureToolbar()
+        {
+            try
+            {
+                _captureToolStrip = new ToolStrip();
+                _tsbDisable = new ToolStripButton("無効") { CheckOnClick = true, Checked = true };
+                _tsbMouse = new ToolStripButton("座標抽出") { CheckOnClick = true };
+                _tsbKey = new ToolStripButton("キー抽出") { CheckOnClick = true };
+                _tslCaptureStatus = new ToolStripLabel("キャプチャ: 無効");
+
+                _tsbDisable.Click += (s, e) => SetCaptureMode(CaptureModeState.Disabled);
+                _tsbMouse.Click += (s, e) => SetCaptureMode(CaptureModeState.Mouse);
+                _tsbKey.Click += (s, e) => SetCaptureMode(CaptureModeState.Key);
+
+                _captureToolStrip.Items.Add(_tsbDisable);
+                _captureToolStrip.Items.Add(_tsbMouse);
+                _captureToolStrip.Items.Add(_tsbKey);
+                _captureToolStrip.Items.Add(new ToolStripSeparator());
+                _captureToolStrip.Items.Add(_tslCaptureStatus);
+
+                _captureToolStrip.Dock = DockStyle.Top;
+                this.Controls.Add(_captureToolStrip);
+                // ensure toolbar is frontmost and other controls are shifted down to avoid overlap
+                try
+                {
+                    _captureToolStrip.BringToFront();
+                    this.Controls.SetChildIndex(_captureToolStrip, 0);
+                    var h = _captureToolStrip.Height;
+                    foreach (Control c in this.Controls)
+                    {
+                        if (c == _captureToolStrip) continue;
+                        c.Top += h;
+                    }
+                }
+                catch { }
+            }
+            catch { }
+        }
+
+        private void UpdateToolbarButtons()
+        {
+            if (_tsbDisable == null || _tsbMouse == null || _tsbKey == null || _tslCaptureStatus == null) return;
+            _tsbDisable.Checked = _captureModeState == CaptureModeState.Disabled;
+            _tsbMouse.Checked = _captureModeState == CaptureModeState.Mouse;
+            _tsbKey.Checked = _captureModeState == CaptureModeState.Key;
+            _tslCaptureStatus.Text = $"キャプチャ: {_captureModeState}";
+        }
+
+        private void SetCaptureMode(CaptureModeState mode)
+        {
+            if (_captureModeState == mode) { UpdateToolbarButtons(); return; }
+            try
+            {
+                if (_captureModeState == CaptureModeState.Mouse)
+                    _mouseHook?.Stop();
+                else if (_captureModeState == CaptureModeState.Key)
+                    _keyboardHook?.Stop();
+            }
+            catch { }
+
+            _captureModeState = mode;
+
+            if (mode == CaptureModeState.Mouse)
+            {
+                _mouseHook ??= new GlobalMouseHook();
+                _mouseHook.OnMouseClick -= HandleGlobalMouseClick;
+                _mouseHook.OnMouseClick += HandleGlobalMouseClick;
+                _mouseHook.Start();
+                AppendLog("Capture mode: Mouse ON");
+            }
+            else if (mode == CaptureModeState.Key)
+            {
+                _keyboardHook ??= new GlobalKeyboardHook();
+                _keyboardHook.OnKeyPressed -= HandleGlobalKeyPress;
+                _keyboardHook.OnKeyPressed += HandleGlobalKeyPress;
+                _keyboardHook.Start();
+                AppendLog("Capture mode: Key ON");
+            }
+            else
+            {
+                AppendLog("Capture mode: Disabled");
+            }
+
+            UpdateToolbarButtons();
+        }
+
+        private void HandleGlobalKeyPress(string keyName)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => HandleGlobalKeyPress(keyName)));
+                return;
+            }
+            var now = DateTime.UtcNow;
+            if (_lastKeyCaptured == keyName && (now - _lastKeyTime).TotalMilliseconds < 300) return;
+            _lastKeyCaptured = keyName; _lastKeyTime = now;
+
+            AppendLog($"OnKeyPress raw: {keyName}");
+            if (dgvScenario.CurrentCell == null) { AppendLog("No current cell, ignoring key capture"); return; }
+            var col = dgvScenario.Columns[dgvScenario.CurrentCell.ColumnIndex];
+            if (!col.Name.StartsWith("Action", StringComparison.OrdinalIgnoreCase)) { AppendLog("Current col not Action*, ignoring"); return; }
+
+            var spec = keyName;
+            if ((GetAsyncKeyState((int)System.Windows.Forms.Keys.ControlKey) & 0x8000) != 0) spec = "Ctrl+" + spec;
+            if ((GetAsyncKeyState((int)System.Windows.Forms.Keys.ShiftKey) & 0x8000) != 0) spec = "Shift+" + spec;
+            if ((GetAsyncKeyState((int)System.Windows.Forms.Keys.Menu) & 0x8000) != 0) spec = "Alt+" + spec;
+
+            try
+            {
+                dgvScenario.CurrentCell.Value = spec;
+                RefreshNoColumn();
+                AppendLog($"Captured key -> {spec}");
+            }
+            catch (Exception ex) { AppendLog("Key capture write failed: " + ex.Message); }
         }
 
         private void DgvScenario_CellMouseDown(object? sender, DataGridViewCellMouseEventArgs e)
@@ -355,6 +483,56 @@ namespace AutoClickScenarioTool
                     MoveRow(from, to);
                 }
             }
+        }
+
+        private void DgvScenario_CellValidating(object sender, DataGridViewCellValidatingEventArgs e)
+        {
+            try
+            {
+                var col = dgvScenario.Columns[e.ColumnIndex];
+                var newVal = e.FormattedValue?.ToString() ?? string.Empty;
+                if (col.Name.StartsWith("Action", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(newVal)) return;
+                    var v = newVal.Trim();
+                    // coordinate check: X,Y
+                    var parts = v.Split(',');
+                    if (parts.Length >= 2 && int.TryParse(parts[0].Trim(), out _) && int.TryParse(parts[1].Trim(), out _))
+                        return;
+                    // otherwise validate as key spec (simple)
+                    if (!IsValidKeySpec(v))
+                    {
+                        e.Cancel = true;
+                        MessageBox.Show("アクションは 'X,Y' またはキー指定（例: A, Enter, Ctrl+S）で入力してください。", "入力エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private bool IsValidKeySpec(string spec)
+        {
+            if (string.IsNullOrWhiteSpace(spec)) return false;
+            var parts = spec.Split('+');
+            for (int i = 0; i < parts.Length - 1; i++)
+            {
+                var m = parts[i].Trim();
+                if (!string.Equals(m, "Ctrl", StringComparison.OrdinalIgnoreCase) && !string.Equals(m, "Alt", StringComparison.OrdinalIgnoreCase) && !string.Equals(m, "Shift", StringComparison.OrdinalIgnoreCase))
+                    return false;
+            }
+            var main = parts.Last().Trim();
+            if (string.IsNullOrEmpty(main)) return false;
+            if (main.Length == 1 && char.IsLetterOrDigit(main[0])) return true;
+            if (int.TryParse(main, out _)) return true;
+            var up = main.ToUpperInvariant();
+            var allowed = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+            {
+                "ENTER","TAB","ESC","ESCAPE","BACK","BACKSPACE","SPACE",
+                "UP","DOWN","LEFT","RIGHT","HOME","END","INSERT","DELETE","PAGEUP","PAGEDOWN","PGUP","PGDN"
+            };
+            if (allowed.Contains(up)) return true;
+            if (up.StartsWith("F") && int.TryParse(up.Substring(1), out int f) && f >= 1 && f <= 24) return true;
+            return false;
         }
 
         private void InsertBlankRowAt(int index)

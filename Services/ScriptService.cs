@@ -66,11 +66,29 @@ namespace AutoClickScenarioTool.Services
 
                         CurrentIndex = i;
                         var step = steps[i];
-                        OnLog?.Invoke($"行{i + 1}: 座標 {step.Positions.Count} 点クリック");
+                        // prepare actions (backward compatible)
+                        var actions = (step.Actions != null && step.Actions.Count > 0) ? step.Actions : step.Positions;
+                        OnLog?.Invoke($"行{i + 1}: アクション {actions.Count} 件実行");
 
-                        // parse positions
-                        var posList = ParsePositions(step.Positions);
-                        _input.ClickMultiple(posList);
+                        // execute each action: coordinate or key
+                        foreach (var a in actions.Where(x => !string.IsNullOrWhiteSpace(x)))
+                        {
+                            var s = a.Trim();
+                            var parts = s.Split(',');
+                            if (parts.Length >= 2 && int.TryParse(parts[0].Trim(), out var xx) && int.TryParse(parts[1].Trim(), out var yy))
+                            {
+                                var pl = new PositionList();
+                                pl.Points.Add(new Point(xx, yy));
+                                _input.ClickMultiple(pl);
+                                // small pause between actions
+                                await Task.Delay(30, token).ConfigureAwait(false);
+                            }
+                            else
+                            {
+                                _input.SendKey(s);
+                                await Task.Delay(60, token).ConfigureAwait(false);
+                            }
+                        }
 
                         // delay
                         var delay = Math.Max(0, step.Delay);
