@@ -30,6 +30,11 @@
         private System.Windows.Forms.Button btnPause;
         private System.Windows.Forms.Button btnStop;
         private System.Windows.Forms.CheckBox btnToggleCapture;
+        private System.Windows.Forms.ToolStrip captureToolStrip;
+        private System.Windows.Forms.ToolStripButton tsbDisable;
+        private System.Windows.Forms.ToolStripButton tsbMouse;
+        private System.Windows.Forms.ToolStripButton tsbKey;
+        private System.Windows.Forms.ToolStripLabel tslCaptureStatus;
         private System.Windows.Forms.TextBox txtDataFolder;
         private System.Windows.Forms.Button btnBrowse;
         private System.Windows.Forms.ComboBox cmbFiles;
@@ -42,6 +47,11 @@
             btnStart = new Button();
             btnPause = new Button();
             btnStop = new Button();
+            captureToolStrip = new ToolStrip();
+            tsbDisable = new ToolStripButton();
+            tsbMouse = new ToolStripButton();
+            tsbKey = new ToolStripButton();
+            tslCaptureStatus = new ToolStripLabel();
             txtDataFolder = new TextBox();
             btnBrowse = new Button();
             cmbFiles = new ComboBox();
@@ -87,14 +97,14 @@
             // 
             // txtDataFolder
             // 
-            txtDataFolder.Location = new Point(12, 12);
+            txtDataFolder.Location = new Point(12, 42);
             txtDataFolder.Name = "txtDataFolder";
             txtDataFolder.Size = new Size(600, 35);
             txtDataFolder.TabIndex = 4;
             // 
             // btnBrowse
             // 
-            btnBrowse.Location = new Point(618, 10);
+            btnBrowse.Location = new Point(618, 40);
             btnBrowse.Name = "btnBrowse";
             btnBrowse.Size = new Size(75, 37);
             btnBrowse.TabIndex = 5;
@@ -105,7 +115,7 @@
             // cmbFiles
             // 
             cmbFiles.FormattingEnabled = true;
-            cmbFiles.Location = new Point(11, 67);
+            cmbFiles.Location = new Point(11, 97);
             cmbFiles.Name = "cmbFiles";
             cmbFiles.Size = new Size(300, 38);
             cmbFiles.TabIndex = 6;
@@ -114,7 +124,7 @@
             // 
             // btnSave
             // 
-            btnSave.Location = new Point(493, 63);
+            btnSave.Location = new Point(493, 93);
             btnSave.Name = "btnSave";
             btnSave.Size = new Size(85, 42);
             btnSave.TabIndex = 8;
@@ -125,11 +135,11 @@
             // dgvScenario
             // 
             dgvScenario.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dgvScenario.Location = new Point(12, 193);
+            dgvScenario.Location = new Point(12, 223);
             dgvScenario.Name = "dgvScenario";
             dgvScenario.RowHeadersWidth = 72;
             dgvScenario.RowTemplate.Height = 25;
-            dgvScenario.Size = new Size(1167, 645);
+            dgvScenario.Size = new Size(1167, 636);
             dgvScenario.TabIndex = 9;
             dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
             dgvScenario.RowsAdded += dgvScenario_RowsChanged;
@@ -139,7 +149,7 @@
             // 
             // txtLog
             // 
-            txtLog.Location = new Point(12, 880);
+            txtLog.Location = new Point(12, 910);
             txtLog.Multiline = true;
             txtLog.Name = "txtLog";
             txtLog.ReadOnly = true;
@@ -147,13 +157,44 @@
             txtLog.Size = new Size(1167, 88);
             txtLog.TabIndex = 10;
             // 
+            // captureToolStrip
+            // 
+            captureToolStrip.Items.AddRange(new ToolStripItem[] { tsbDisable, tsbMouse, tsbKey, new ToolStripSeparator(), tslCaptureStatus });
+            captureToolStrip.Location = new Point(0, 0);
+            captureToolStrip.Name = "captureToolStrip";
+            captureToolStrip.Size = new Size(1211, 30);
+            captureToolStrip.TabIndex = 100;
+            captureToolStrip.Text = "captureToolStrip";
+
+            // tsbDisable
+            tsbDisable.Text = "無効";
+            tsbDisable.CheckOnClick = true;
+            tsbDisable.Checked = true;
+            tsbDisable.Click += tsbDisable_Click;
+
+            // tsbMouse
+            tsbMouse.Text = "座標抽出";
+            tsbMouse.CheckOnClick = true;
+            tsbMouse.Click += tsbMouse_Click;
+
+            // tsbKey
+            tsbKey.Text = "キー抽出";
+            tsbKey.CheckOnClick = true;
+            tsbKey.Click += tsbKey_Click;
+
+            // tslCaptureStatus
+            tslCaptureStatus.Text = "キャプチャ: 無効";
+
+            // add toolstrip first
+            Controls.Add(captureToolStrip);
+
             // btnToggleCapture
             // 
             btnToggleCapture.Appearance = Appearance.Button;
             btnToggleCapture.BackColor = SystemColors.Control;
             btnToggleCapture.Cursor = Cursors.Hand;
             btnToggleCapture.FlatStyle = FlatStyle.Flat;
-            btnToggleCapture.Location = new Point(1019, 129);
+            btnToggleCapture.Location = new Point(1019, 159);
             btnToggleCapture.Name = "btnToggleCapture";
             btnToggleCapture.Size = new Size(160, 45);
             btnToggleCapture.TabIndex = 3;

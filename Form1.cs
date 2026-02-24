@@ -15,11 +15,7 @@ namespace AutoClickScenarioTool
     {
         private enum CaptureModeState { Disabled, Mouse, Key }
         private CaptureModeState _captureModeState = CaptureModeState.Disabled;
-        private ToolStrip? _captureToolStrip;
-        private ToolStripButton? _tsbDisable;
-        private ToolStripButton? _tsbMouse;
-        private ToolStripButton? _tsbKey;
-        private ToolStripLabel? _tslCaptureStatus;
+        // Designer-managed ToolStrip controls are used instead of runtime-created ones.
         private GlobalKeyboardHook? _keyboardHook;
         private DateTime _lastKeyTime = DateTime.MinValue;
         private string _lastKeyCaptured = string.Empty;
@@ -29,6 +25,7 @@ namespace AutoClickScenarioTool
         private ScriptService? _scriptService;
 
         private bool _isPaused = false;
+        private DataGridViewEditMode _savedEditMode = DataGridViewEditMode.EditOnKeystroke;
 
         
 
@@ -118,7 +115,6 @@ namespace AutoClickScenarioTool
             _script_service_init();
 
             CreateGridColumns();
-            CreateCaptureToolbar();
 
             // プロジェクト直下のDataを優先し、なければbin配下を使う
             try
@@ -321,52 +317,34 @@ namespace AutoClickScenarioTool
             _rowContextMenu.Items.AddRange(new ToolStripItem[] { insertAbove, insertBelow, delete, moveUp, moveDown });
         }
 
-        private void CreateCaptureToolbar()
+        // CreateCaptureToolbar removed: using designer-added ToolStrip and buttons.
+
+        private void UpdateToolbarButtons()
         {
             try
             {
-                _captureToolStrip = new ToolStrip();
-                _tsbDisable = new ToolStripButton("無効") { CheckOnClick = true, Checked = true };
-                _tsbMouse = new ToolStripButton("座標抽出") { CheckOnClick = true };
-                _tsbKey = new ToolStripButton("キー抽出") { CheckOnClick = true };
-                _tslCaptureStatus = new ToolStripLabel("キャプチャ: 無効");
-
-                _tsbDisable.Click += (s, e) => SetCaptureMode(CaptureModeState.Disabled);
-                _tsbMouse.Click += (s, e) => SetCaptureMode(CaptureModeState.Mouse);
-                _tsbKey.Click += (s, e) => SetCaptureMode(CaptureModeState.Key);
-
-                _captureToolStrip.Items.Add(_tsbDisable);
-                _captureToolStrip.Items.Add(_tsbMouse);
-                _captureToolStrip.Items.Add(_tsbKey);
-                _captureToolStrip.Items.Add(new ToolStripSeparator());
-                _captureToolStrip.Items.Add(_tslCaptureStatus);
-
-                _captureToolStrip.Dock = DockStyle.Top;
-                this.Controls.Add(_captureToolStrip);
-                // ensure toolbar is frontmost and other controls are shifted down to avoid overlap
-                try
-                {
-                    _captureToolStrip.BringToFront();
-                    this.Controls.SetChildIndex(_captureToolStrip, 0);
-                    var h = _captureToolStrip.Height;
-                    foreach (Control c in this.Controls)
-                    {
-                        if (c == _captureToolStrip) continue;
-                        c.Top += h;
-                    }
-                }
-                catch { }
+                if (tsbDisable == null || tsbMouse == null || tsbKey == null || tslCaptureStatus == null) return;
+                tsbDisable.Checked = _captureModeState == CaptureModeState.Disabled;
+                tsbMouse.Checked = _captureModeState == CaptureModeState.Mouse;
+                tsbKey.Checked = _captureModeState == CaptureModeState.Key;
+                tslCaptureStatus.Text = $"キャプチャ: {_captureModeState}";
             }
             catch { }
         }
 
-        private void UpdateToolbarButtons()
+        private void tsbDisable_Click(object sender, EventArgs e)
         {
-            if (_tsbDisable == null || _tsbMouse == null || _tsbKey == null || _tslCaptureStatus == null) return;
-            _tsbDisable.Checked = _captureModeState == CaptureModeState.Disabled;
-            _tsbMouse.Checked = _captureModeState == CaptureModeState.Mouse;
-            _tsbKey.Checked = _captureModeState == CaptureModeState.Key;
-            _tslCaptureStatus.Text = $"キャプチャ: {_captureModeState}";
+            SetCaptureMode(CaptureModeState.Disabled);
+        }
+
+        private void tsbMouse_Click(object sender, EventArgs e)
+        {
+            SetCaptureMode(CaptureModeState.Mouse);
+        }
+
+        private void tsbKey_Click(object sender, EventArgs e)
+        {
+            SetCaptureMode(CaptureModeState.Key);
         }
 
         private void SetCaptureMode(CaptureModeState mode)
@@ -396,12 +374,36 @@ namespace AutoClickScenarioTool
                 _keyboardHook ??= new GlobalKeyboardHook();
                 _keyboardHook.OnKeyPressed -= HandleGlobalKeyPress;
                 _keyboardHook.OnKeyPressed += HandleGlobalKeyPress;
+                _keyboardHook.SuppressKeys = true;
+                // Only suppress when our form has focus and the selected cell is an Action column
+                _keyboardHook.ShouldSuppress = () =>
+                {
+                    try
+                    {
+                        if (!this.Focused) return false;
+                        if (dgvScenario == null) return false;
+                        if (!dgvScenario.Focused) return false;
+                        var cell = dgvScenario.CurrentCell;
+                        if (cell == null) return false;
+                        var col = dgvScenario.Columns[cell.ColumnIndex];
+                        return col.Name.StartsWith("Action", StringComparison.OrdinalIgnoreCase);
+                    }
+                    catch { return false; }
+                };
+                // prevent DataGridView from entering edit mode on key press
+                try { _savedEditMode = dgvScenario.EditMode; dgvScenario.EditMode = DataGridViewEditMode.EditProgrammatically; } catch { }
                 _keyboardHook.Start();
                 AppendLog("Capture mode: Key ON");
             }
             else
             {
                 AppendLog("Capture mode: Disabled");
+            }
+
+            // restore edit mode when leaving key capture
+            if (mode != CaptureModeState.Key)
+            {
+                try { dgvScenario.EditMode = _savedEditMode; } catch { }
             }
 
             UpdateToolbarButtons();
@@ -430,9 +432,54 @@ namespace AutoClickScenarioTool
 
             try
             {
-                dgvScenario.CurrentCell.Value = spec;
+                // Normalize single-letter mains to uppercase for consistent playback
+                var finalSpec = spec;
+                var parts = finalSpec.Split('+');
+                var main = parts.Last();
+                if (main.Length == 1 && char.IsLetter(main[0]))
+                {
+                    parts[parts.Length - 1] = main.ToUpperInvariant();
+                    finalSpec = string.Join("+", parts);
+                }
+
+                dgvScenario.CurrentCell.Value = finalSpec;
+                // force UI refresh to ensure displayed value matches logged value
+                try
+                {
+                    dgvScenario.InvalidateCell(dgvScenario.CurrentCell);
+                    dgvScenario.Refresh();
+                    dgvScenario.Update();
+                }
+                catch { }
                 RefreshNoColumn();
-                AppendLog($"Captured key -> {spec}");
+                AppendLog($"Captured key -> {finalSpec}");
+
+                // Re-apply the finalSpec shortly after to override any late-arriving lowercase input
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(120).ConfigureAwait(false);
+                    try
+                    {
+                        Invoke(new Action(() =>
+                        {
+                            try
+                            {
+                                if (dgvScenario.CurrentCell != null)
+                                {
+                                    var col = dgvScenario.Columns[dgvScenario.CurrentCell.ColumnIndex];
+                                    if (col.Name.StartsWith("Action", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        dgvScenario.CurrentCell.Value = finalSpec;
+                                        dgvScenario.InvalidateCell(dgvScenario.CurrentCell);
+                                        dgvScenario.Refresh();
+                                    }
+                                }
+                            }
+                            catch { }
+                        }));
+                    }
+                    catch { }
+                });
             }
             catch (Exception ex) { AppendLog("Key capture write failed: " + ex.Message); }
         }
@@ -522,7 +569,8 @@ namespace AutoClickScenarioTool
             }
             var main = parts.Last().Trim();
             if (string.IsNullOrEmpty(main)) return false;
-            if (main.Length == 1 && char.IsLetterOrDigit(main[0])) return true;
+            // Allow single letter/digit or single punctuation/symbol (e.g. ; , + - /)
+            if (main.Length == 1 && (char.IsLetterOrDigit(main[0]) || char.IsPunctuation(main[0]) || char.IsSymbol(main[0]))) return true;
             if (int.TryParse(main, out _)) return true;
             var up = main.ToUpperInvariant();
             var allowed = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
