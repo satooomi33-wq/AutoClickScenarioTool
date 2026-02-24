@@ -49,7 +49,6 @@
         private System.Windows.Forms.Label lblHumanizeRange;
         private System.Windows.Forms.TextBox txtHumanizeLower;
         private System.Windows.Forms.TextBox txtHumanizeUpper;
-        private System.Windows.Forms.Label lblHumanizeSep;
         private System.Windows.Forms.Button btnToggleHumanize;
 
         private void InitializeComponent()
@@ -76,7 +75,6 @@
             lblHumanizeRange = new Label();
             txtHumanizeLower = new TextBox();
             txtHumanizeUpper = new TextBox();
-            lblHumanizeSep = new Label();
             btnToggleHumanize = new Button();
             captureToolStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvScenario).BeginInit();
@@ -221,7 +219,7 @@
             // 
             // lblDefaultDelay
             // 
-            lblDefaultDelay.Location = new Point(566, 93);
+            lblDefaultDelay.Location = new Point(537, 93);
             lblDefaultDelay.Name = "lblDefaultDelay";
             lblDefaultDelay.Size = new Size(180, 35);
             lblDefaultDelay.TabIndex = 101;
@@ -229,15 +227,15 @@
             // 
             // txtDefaultDelay
             // 
-            txtDefaultDelay.Location = new Point(752, 90);
+            txtDefaultDelay.Location = new Point(723, 90);
             txtDefaultDelay.Name = "txtDefaultDelay";
-            txtDefaultDelay.Size = new Size(60, 35);
+            txtDefaultDelay.Size = new Size(66, 35);
             txtDefaultDelay.TabIndex = 11;
             txtDefaultDelay.Text = "500";
             // 
             // lblDefaultPressDuration
             // 
-            lblDefaultPressDuration.Location = new Point(825, 93);
+            lblDefaultPressDuration.Location = new Point(814, 92);
             lblDefaultPressDuration.Name = "lblDefaultPressDuration";
             lblDefaultPressDuration.Size = new Size(180, 33);
             lblDefaultPressDuration.TabIndex = 102;
@@ -245,7 +243,7 @@
             // 
             // txtDefaultPressDuration
             // 
-            txtDefaultPressDuration.Location = new Point(1011, 91);
+            txtDefaultPressDuration.Location = new Point(1000, 90);
             txtDefaultPressDuration.Name = "txtDefaultPressDuration";
             txtDefaultPressDuration.Size = new Size(66, 35);
             txtDefaultPressDuration.TabIndex = 12;
@@ -253,9 +251,9 @@
             // 
             // btnSaveDefaults
             // 
-            btnSaveDefaults.Location = new Point(1083, 92);
+            btnSaveDefaults.Location = new Point(1072, 93);
             btnSaveDefaults.Name = "btnSaveDefaults";
-            btnSaveDefaults.Size = new Size(131, 38);
+            btnSaveDefaults.Size = new Size(131, 73);
             btnSaveDefaults.TabIndex = 13;
             btnSaveDefaults.Text = "初期値保存";
             btnSaveDefaults.UseVisualStyleBackColor = true;
@@ -263,7 +261,7 @@
             // 
             // lblHumanizeRange
             // 
-            lblHumanizeRange.Location = new Point(12, 89);
+            lblHumanizeRange.Location = new Point(691, 129);
             lblHumanizeRange.Name = "lblHumanizeRange";
             lblHumanizeRange.Size = new Size(187, 42);
             lblHumanizeRange.TabIndex = 0;
@@ -271,31 +269,23 @@
             // 
             // txtHumanizeLower
             // 
-            txtHumanizeLower.Location = new Point(205, 91);
+            txtHumanizeLower.Location = new Point(884, 131);
             txtHumanizeLower.Name = "txtHumanizeLower";
             txtHumanizeLower.Size = new Size(66, 35);
             txtHumanizeLower.TabIndex = 0;
             // 
             // txtHumanizeUpper
             // 
-            txtHumanizeUpper.Location = new Point(327, 91);
+            txtHumanizeUpper.Location = new Point(1006, 131);
             txtHumanizeUpper.Name = "txtHumanizeUpper";
             txtHumanizeUpper.Size = new Size(60, 35);
             txtHumanizeUpper.TabIndex = 0;
             // 
-            // lblHumanizeSep
-            // 
-            lblHumanizeSep.Location = new Point(281, 91);
-            lblHumanizeSep.Name = "lblHumanizeSep";
-            lblHumanizeSep.Size = new Size(36, 35);
-            lblHumanizeSep.TabIndex = 0;
-            lblHumanizeSep.Text = "～";
-            // 
             // btnToggleHumanize
             // 
-            btnToggleHumanize.Location = new Point(393, 92);
+            btnToggleHumanize.Location = new Point(266, 139);
             btnToggleHumanize.Name = "btnToggleHumanize";
-            btnToggleHumanize.Size = new Size(166, 35);
+            btnToggleHumanize.Size = new Size(155, 35);
             btnToggleHumanize.TabIndex = 0;
             // 
             // Form1
@@ -317,7 +307,6 @@
             Controls.Add(btnSaveDefaults);
             Controls.Add(lblHumanizeRange);
             Controls.Add(txtHumanizeLower);
-            Controls.Add(lblHumanizeSep);
             Controls.Add(txtHumanizeUpper);
             Controls.Add(btnToggleHumanize);
             Controls.Add(btnStop);
