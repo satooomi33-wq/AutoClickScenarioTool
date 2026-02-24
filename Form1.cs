@@ -139,6 +139,8 @@ namespace AutoClickScenarioTool
 
             RefreshFileList();
             _ = LoadAndApplyDefaultsAsync();
+            // ensure there's at least one editable row on startup
+            try { EnsureGridHasRow(); } catch { }
         }
 
         // Designer-referenced handlers: add simple implementations to avoid CS1061
@@ -182,11 +184,20 @@ namespace AutoClickScenarioTool
                 btnSaveDefaults.Enabled = false;
                 await _dataService.SaveDefaultsAsync(settings).ConfigureAwait(false);
                 _defaultSettings = settings;
-                try { Invoke(new Action(() => AppendLog("初期値を保存しました"))); } catch { }
+                try
+                {
+                    Invoke(new Action(() =>
+                    {
+                        AppendLog("初期値を保存しました");
+                        MessageBox.Show("初期値を保存しました", "完了", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }));
+                }
+                catch { }
             }
             catch (Exception ex)
             {
                 AppendLog($"Save defaults failed: {ex.Message}");
+                try { Invoke(new Action(() => MessageBox.Show($"初期値の保存に失敗しました: {ex.Message}", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error))); } catch { }
             }
             finally
             {
@@ -314,8 +325,66 @@ namespace AutoClickScenarioTool
             dgvScenario.DragDrop += DgvScenario_DragDrop;
             dgvScenario.CellMouseDown += DgvScenario_CellMouseDown;
             dgvScenario.CellValidating += DgvScenario_CellValidating;
+            dgvScenario.RowsAdded += dgvScenario_RowsChanged;
+            // also handle rows-added specifically to populate defaults
+            dgvScenario.RowsAdded += DgvScenario_RowsAdded;
             // context menu
             EnsureRowContextMenu();
+        }
+
+        private void DgvScenario_RowsAdded(object? sender, DataGridViewRowsAddedEventArgs e)
+        {
+            // When rows are added (user or programmatically), fill default Delay/PressDuration
+            try
+            {
+                for (int i = e.RowIndex; i < e.RowIndex + e.RowCount && i < dgvScenario.Rows.Count; i++)
+                {
+                    var row = dgvScenario.Rows[i];
+                    if (row.IsNewRow) continue;
+                    if (_defaultSettings != null)
+                    {
+                        // only set if cells empty
+                        if (dgvScenario.ColumnCount > 1 && (row.Cells[1].Value == null || string.IsNullOrWhiteSpace(row.Cells[1].Value.ToString())))
+                            row.Cells[1].Value = _defaultSettings.Delay;
+                        if (dgvScenario.ColumnCount > 2 && (row.Cells[2].Value == null || string.IsNullOrWhiteSpace(row.Cells[2].Value.ToString())))
+                            row.Cells[2].Value = _defaultSettings.PressDuration;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void AddBlankRowWithDefaults()
+        {
+            try
+            {
+                var cells = new object[dgvScenario.ColumnCount];
+                cells[0] = string.Empty;
+                cells[1] = _defaultSettings?.Delay ?? 500;
+                cells[2] = _defaultSettings?.PressDuration ?? 100;
+                for (int i = 3; i < dgvScenario.ColumnCount; i++) cells[i] = string.Empty;
+                dgvScenario.Rows.Add(cells);
+                RefreshNoColumn();
+            }
+            catch { }
+        }
+
+        private void EnsureGridHasRow()
+        {
+            try
+            {
+                // If grid has no non-new rows, add one blank row
+                bool hasNonNew = false;
+                foreach (DataGridViewRow r in dgvScenario.Rows)
+                {
+                    if (!r.IsNewRow) { hasNonNew = true; break; }
+                }
+                if (!hasNonNew)
+                {
+                    AddBlankRowWithDefaults();
+                }
+            }
+            catch { }
         }
 
         public void RefreshNoColumn()
@@ -709,11 +778,21 @@ namespace AutoClickScenarioTool
         {
             var folder = txtDataFolder.Text;
             var fileName = cmbFiles.Text?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(folder) || string.IsNullOrWhiteSpace(fileName)) return;
+            if (string.IsNullOrWhiteSpace(folder)) return;
             if (!fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
                 fileName += ".json";
             var path = Path.Combine(folder, fileName);
-            if (!File.Exists(path)) return;
+            if (!File.Exists(path))
+            {
+                // New filename or no existing file: clear grid and ensure one blank row
+                try
+                {
+                    dgvScenario.Rows.Clear();
+                    EnsureGridHasRow();
+                }
+                catch { }
+                return;
+            }
             try
             {
                 var steps = await _data_service_load(path).ConfigureAwait(false);
