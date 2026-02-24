@@ -35,6 +35,11 @@
         private System.Windows.Forms.ToolStripButton tsbMouse;
         private System.Windows.Forms.ToolStripButton tsbKey;
         private System.Windows.Forms.ToolStripLabel tslCaptureStatus;
+        private System.Windows.Forms.Label lblDefaultDelay;
+        private System.Windows.Forms.TextBox txtDefaultDelay;
+        private System.Windows.Forms.Label lblDefaultPressDuration;
+        private System.Windows.Forms.TextBox txtDefaultPressDuration;
+        private System.Windows.Forms.Button btnSaveDefaults;
         private System.Windows.Forms.TextBox txtDataFolder;
         private System.Windows.Forms.Button btnBrowse;
         private System.Windows.Forms.ComboBox cmbFiles;
@@ -58,6 +63,11 @@
             btnSave = new Button();
             dgvScenario = new DataGridView();
             txtLog = new TextBox();
+            lblDefaultDelay = new Label();
+            txtDefaultDelay = new TextBox();
+            lblDefaultPressDuration = new Label();
+            txtDefaultPressDuration = new TextBox();
+            btnSaveDefaults = new Button();
             ((System.ComponentModel.ISupportInitialize)dgvScenario).BeginInit();
             SuspendLayout();
             // 
@@ -130,6 +140,41 @@
             btnSave.Text = "保存";
             btnSave.UseVisualStyleBackColor = true;
             btnSave.Click += btnSave_Click;
+
+            // lblDefaultDelay
+            lblDefaultDelay.Location = new Point(320, 42);
+            lblDefaultDelay.Name = "lblDefaultDelay";
+            lblDefaultDelay.Size = new Size(120, 28);
+            lblDefaultDelay.Text = "デフォルト 遅延(ms)";
+
+            // txtDefaultDelay
+            txtDefaultDelay.Location = new Point(450, 40);
+            txtDefaultDelay.Name = "txtDefaultDelay";
+            txtDefaultDelay.Size = new Size(60, 35);
+            txtDefaultDelay.TabIndex = 11;
+            txtDefaultDelay.Text = "500";
+
+            // lblDefaultPressDuration
+            lblDefaultPressDuration.Location = new Point(520, 42);
+            lblDefaultPressDuration.Name = "lblDefaultPressDuration";
+            lblDefaultPressDuration.Size = new Size(140, 28);
+            lblDefaultPressDuration.Text = "デフォルト 押下時間(ms)";
+
+            // txtDefaultPressDuration
+            txtDefaultPressDuration.Location = new Point(670, 40);
+            txtDefaultPressDuration.Name = "txtDefaultPressDuration";
+            txtDefaultPressDuration.Size = new Size(60, 35);
+            txtDefaultPressDuration.TabIndex = 12;
+            txtDefaultPressDuration.Text = "100";
+
+            // btnSaveDefaults
+            btnSaveDefaults.Location = new Point(740, 38);
+            btnSaveDefaults.Name = "btnSaveDefaults";
+            btnSaveDefaults.Size = new Size(95, 38);
+            btnSaveDefaults.TabIndex = 13;
+            btnSaveDefaults.Text = "初期値保存";
+            btnSaveDefaults.UseVisualStyleBackColor = true;
+            btnSaveDefaults.Click += btnSaveDefaults_Click;
             // 
             // dgvScenario
             // 
@@ -200,6 +245,11 @@
             Controls.Add(cmbFiles);
             Controls.Add(btnBrowse);
             Controls.Add(txtDataFolder);
+            Controls.Add(lblDefaultDelay);
+            Controls.Add(txtDefaultDelay);
+            Controls.Add(lblDefaultPressDuration);
+            Controls.Add(txtDefaultPressDuration);
+            Controls.Add(btnSaveDefaults);
             Controls.Add(btnStop);
             Controls.Add(btnPause);
             Controls.Add(btnStart);

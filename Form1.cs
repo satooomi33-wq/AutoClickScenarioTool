@@ -21,6 +21,7 @@ namespace AutoClickScenarioTool
         private string _lastKeyCaptured = string.Empty;
         private readonly DataService _dataService = new DataService();
         private readonly InputService _inputService = new InputService();
+        private Models.DefaultSettings _defaultSettings = new Models.DefaultSettings();
         // ...existing code...
         private ScriptService? _scriptService;
 
@@ -137,6 +138,7 @@ namespace AutoClickScenarioTool
             catch { /* ignore */ }
 
             RefreshFileList();
+            _ = LoadAndApplyDefaultsAsync();
         }
 
         // Designer-referenced handlers: add simple implementations to avoid CS1061
@@ -160,6 +162,36 @@ namespace AutoClickScenarioTool
                 MoveRow(r, Math.Max(0, r - 1));
             }
             catch { }
+        }
+
+        private async void btnSaveDefaults_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (!int.TryParse(txtDefaultDelay.Text, out int d) || d < 0)
+                {
+                    MessageBox.Show("遅延は0以上の整数で指定してください", "入力エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                if (!int.TryParse(txtDefaultPressDuration.Text, out int p) || p < 0)
+                {
+                    MessageBox.Show("押下時間は0以上の整数で指定してください", "入力エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                var settings = new Models.DefaultSettings { Delay = d, PressDuration = p };
+                btnSaveDefaults.Enabled = false;
+                await _dataService.SaveDefaultsAsync(settings).ConfigureAwait(false);
+                _defaultSettings = settings;
+                try { Invoke(new Action(() => AppendLog("初期値を保存しました"))); } catch { }
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"Save defaults failed: {ex.Message}");
+            }
+            finally
+            {
+                try { Invoke(new Action(() => btnSaveDefaults.Enabled = true)); } catch { }
+            }
         }
 
         private void btnRowDown_Click(object? sender, EventArgs e)
@@ -917,6 +949,18 @@ namespace AutoClickScenarioTool
         private void dgvScenario_UserAddedRow(object sender, DataGridViewRowEventArgs e)
         {
             RefreshNoColumn();
+            try
+            {
+                if (_defaultSettings != null && e.Row != null)
+                {
+                    // Delay column = index 1, PressDuration = index 2
+                    if (dgvScenario.ColumnCount > 1)
+                        e.Row.Cells[1].Value = _defaultSettings.Delay;
+                    if (dgvScenario.ColumnCount > 2)
+                        e.Row.Cells[2].Value = _defaultSettings.PressDuration;
+                }
+            }
+            catch { }
         }
 
         private bool _captureMode = false;
@@ -932,6 +976,28 @@ namespace AutoClickScenarioTool
             _mouseHook.OnMouseClick += HandleGlobalMouseClick;
             AppendLog($"OnLoad: mouseHook created, hookId TBD");
             LogDisplayInfo();
+        }
+
+        private async Task LoadAndApplyDefaultsAsync()
+        {
+            try
+            {
+                var d = await _dataService.LoadDefaultsAsync().ConfigureAwait(false);
+                _defaultSettings = d ?? new Models.DefaultSettings();
+                try
+                {
+                    Invoke(new Action(() =>
+                    {
+                        txtDefaultDelay.Text = _defaultSettings.Delay.ToString();
+                        txtDefaultPressDuration.Text = _defaultSettings.PressDuration.ToString();
+                    }));
+                }
+                catch { }
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"Load defaults failed: {ex.Message}");
+            }
         }
 
         
