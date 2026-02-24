@@ -49,6 +49,7 @@
         private System.Windows.Forms.Label lblHumanizeRange;
         private System.Windows.Forms.TextBox txtHumanizeLower;
         private System.Windows.Forms.TextBox txtHumanizeUpper;
+        private System.Windows.Forms.Label lblHumanizeSeparator;
         private System.Windows.Forms.Button btnToggleHumanize;
 
         private void InitializeComponent()
@@ -74,6 +75,7 @@
             btnSaveDefaults = new Button();
             lblHumanizeRange = new Label();
             txtHumanizeLower = new TextBox();
+            lblHumanizeSeparator = new Label();
             txtHumanizeUpper = new TextBox();
             btnToggleHumanize = new Button();
             captureToolStrip.SuspendLayout();
@@ -195,11 +197,11 @@
             // dgvScenario
             // 
             dgvScenario.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dgvScenario.Location = new Point(12, 187);
+            dgvScenario.Location = new Point(12, 200);
             dgvScenario.Name = "dgvScenario";
             dgvScenario.RowHeadersWidth = 72;
             dgvScenario.RowTemplate.Height = 25;
-            dgvScenario.Size = new Size(1202, 537);
+            dgvScenario.Size = new Size(1202, 520);
             dgvScenario.TabIndex = 9;
             dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
             dgvScenario.RowsAdded += dgvScenario_RowsChanged;
@@ -209,25 +211,26 @@
             // 
             // txtLog
             // 
-            txtLog.Location = new Point(10, 746);
+            txtLog.Location = new Point(10, 730);
             txtLog.Multiline = true;
             txtLog.Name = "txtLog";
             txtLog.ReadOnly = true;
             txtLog.ScrollBars = ScrollBars.Vertical;
-            txtLog.Size = new Size(1204, 222);
+            txtLog.Size = new Size(1204, 230);
             txtLog.TabIndex = 10;
             // 
             // lblDefaultDelay
             // 
-            lblDefaultDelay.Location = new Point(537, 93);
+            lblDefaultDelay.Location = new Point(409, 93);
             lblDefaultDelay.Name = "lblDefaultDelay";
             lblDefaultDelay.Size = new Size(180, 35);
             lblDefaultDelay.TabIndex = 101;
             lblDefaultDelay.Text = "デフォルト 遅延(ms)";
+            lblDefaultDelay.TextAlign = ContentAlignment.MiddleRight;
             // 
             // txtDefaultDelay
             // 
-            txtDefaultDelay.Location = new Point(723, 90);
+            txtDefaultDelay.Location = new Point(595, 90);
             txtDefaultDelay.Name = "txtDefaultDelay";
             txtDefaultDelay.Size = new Size(66, 35);
             txtDefaultDelay.TabIndex = 11;
@@ -235,15 +238,16 @@
             // 
             // lblDefaultPressDuration
             // 
-            lblDefaultPressDuration.Location = new Point(814, 92);
+            lblDefaultPressDuration.Location = new Point(677, 92);
             lblDefaultPressDuration.Name = "lblDefaultPressDuration";
-            lblDefaultPressDuration.Size = new Size(180, 33);
+            lblDefaultPressDuration.Size = new Size(229, 33);
             lblDefaultPressDuration.TabIndex = 102;
             lblDefaultPressDuration.Text = "デフォルト 押下時間(ms)";
+            lblDefaultPressDuration.TextAlign = ContentAlignment.MiddleRight;
             // 
             // txtDefaultPressDuration
             // 
-            txtDefaultPressDuration.Location = new Point(1000, 90);
+            txtDefaultPressDuration.Location = new Point(912, 93);
             txtDefaultPressDuration.Name = "txtDefaultPressDuration";
             txtDefaultPressDuration.Size = new Size(66, 35);
             txtDefaultPressDuration.TabIndex = 12;
@@ -251,9 +255,9 @@
             // 
             // btnSaveDefaults
             // 
-            btnSaveDefaults.Location = new Point(1072, 93);
+            btnSaveDefaults.Location = new Point(997, 87);
             btnSaveDefaults.Name = "btnSaveDefaults";
-            btnSaveDefaults.Size = new Size(131, 73);
+            btnSaveDefaults.Size = new Size(131, 35);
             btnSaveDefaults.TabIndex = 13;
             btnSaveDefaults.Text = "初期値保存";
             btnSaveDefaults.UseVisualStyleBackColor = true;
@@ -261,32 +265,44 @@
             // 
             // lblHumanizeRange
             // 
-            lblHumanizeRange.Location = new Point(691, 129);
+            lblHumanizeRange.Location = new Point(9, 93);
             lblHumanizeRange.Name = "lblHumanizeRange";
-            lblHumanizeRange.Size = new Size(187, 42);
-            lblHumanizeRange.TabIndex = 0;
+            lblHumanizeRange.Size = new Size(183, 35);
+            lblHumanizeRange.TabIndex = 14;
             lblHumanizeRange.Text = "擬人化範囲(ms±)";
+            lblHumanizeRange.TextAlign = ContentAlignment.MiddleRight;
             // 
             // txtHumanizeLower
             // 
-            txtHumanizeLower.Location = new Point(884, 131);
+            txtHumanizeLower.Location = new Point(198, 93);
             txtHumanizeLower.Name = "txtHumanizeLower";
             txtHumanizeLower.Size = new Size(66, 35);
-            txtHumanizeLower.TabIndex = 0;
+            txtHumanizeLower.TabIndex = 15;
+            // 
+            // lblHumanizeSeparator
+            // 
+            lblHumanizeSeparator.Location = new Point(270, 93);
+            lblHumanizeSeparator.Name = "lblHumanizeSeparator";
+            lblHumanizeSeparator.Size = new Size(24, 35);
+            lblHumanizeSeparator.TabIndex = 16;
+            lblHumanizeSeparator.Text = "～";
+            lblHumanizeSeparator.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // txtHumanizeUpper
             // 
-            txtHumanizeUpper.Location = new Point(1006, 131);
+            txtHumanizeUpper.Location = new Point(300, 93);
             txtHumanizeUpper.Name = "txtHumanizeUpper";
-            txtHumanizeUpper.Size = new Size(60, 35);
-            txtHumanizeUpper.TabIndex = 0;
+            txtHumanizeUpper.Size = new Size(66, 35);
+            txtHumanizeUpper.TabIndex = 17;
             // 
             // btnToggleHumanize
             // 
-            btnToggleHumanize.Location = new Point(266, 139);
+            btnToggleHumanize.Location = new Point(257, 137);
             btnToggleHumanize.Name = "btnToggleHumanize";
-            btnToggleHumanize.Size = new Size(155, 35);
-            btnToggleHumanize.TabIndex = 0;
+            btnToggleHumanize.Size = new Size(146, 37);
+            btnToggleHumanize.TabIndex = 3;
+            btnToggleHumanize.Text = "擬人化切替";
+            btnToggleHumanize.UseVisualStyleBackColor = true;
             // 
             // Form1
             // 
@@ -307,6 +323,7 @@
             Controls.Add(btnSaveDefaults);
             Controls.Add(lblHumanizeRange);
             Controls.Add(txtHumanizeLower);
+            Controls.Add(lblHumanizeSeparator);
             Controls.Add(txtHumanizeUpper);
             Controls.Add(btnToggleHumanize);
             Controls.Add(btnStop);
