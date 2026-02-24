@@ -1,56 +1,22 @@
 [
-  {
-    "Delay": 500,
-    "PressDuration": 100,
-    "Actions": [
-      "868,1172"
-    ]
-  },
-  {
-    "Delay": 550,
-    "PressDuration": 100,
-    "Actions": [
-      "1623,1190"
-    ]
-  },
-  {
-    "Delay": 500,
-    "PressDuration": 100,
-    "Actions": [
-      "1896,1189"
-    ]
-  },
-  {
-    "Delay": 500,
-    "PressDuration": 100,
-    "Actions": [
-      "1419,1184"
-    ]
-  },
-  {
-    "Delay": 500,
-    "PressDuration": 100,
-    "Actions": [
-      "619,954"
-    ]
-  },
-  {
-    "Delay": 500,
-    "PressDuration": 100,
-    "Actions": [
-      "646,969"
-    ]
-  },
-  {
-    "Delay": 500,
-    "PressDuration": 100,
-    "Actions": [
-      "1674,1184"
-    ]
-  },
-  {
-    "Delay": 0,
-    "PressDuration": 100,
-    "Actions": []
-  }
+  { "Delay": 500, "PressDuration": 100, "Positions": [ "SC:M" ], "Actions": [] },
+  { "Delay": 480, "PressDuration": 100, "Positions": [ "SC:K" ], "Actions": [] },
+  { "Delay": 520, "PressDuration": 100, "Positions": [ "SC:A" ], "Actions": [] },
+  { "Delay": 500, "PressDuration": 100, "Positions": [ "SC:Z" ], "Actions": [] },
+  { "Delay": 510, "PressDuration": 100, "Positions": [ "SC:Q" ], "Actions": [] },
+  { "Delay": 495, "PressDuration": 100, "Positions": [ "SC:L" ], "Actions": [] },
+  { "Delay": 505, "PressDuration": 100, "Positions": [ "SC:S" ], "Actions": [] },
+  { "Delay": 500, "PressDuration": 100, "Positions": [ "SC:P" ], "Actions": [] },
+  { "Delay": 490, "PressDuration": 100, "Positions": [ "SC:T" ], "Actions": [] },
+  { "Delay": 500, "PressDuration": 100, "Positions": [ "SC:G" ], "Actions": [] },
+  { "Delay": 515, "PressDuration": 100, "Positions": [ "SC:R" ], "Actions": [] },
+  { "Delay": 485, "PressDuration": 100, "Positions": [ "SC:B" ], "Actions": [] },
+  { "Delay": 500, "PressDuration": 100, "Positions": [ "SC:X" ], "Actions": [] },
+  { "Delay": 475, "PressDuration": 100, "Positions": [ "SC:E" ], "Actions": [] },
+  { "Delay": 530, "PressDuration": 100, "Positions": [ "SC:Y" ], "Actions": [] },
+  { "Delay": 500, "PressDuration": 100, "Positions": [ "SC:N" ], "Actions": [] },
+  { "Delay": 500, "PressDuration": 100, "Positions": [ "SC:H" ], "Actions": [] },
+  { "Delay": 505, "PressDuration": 100, "Positions": [ "SC:D" ], "Actions": [] },
+  { "Delay": 495, "PressDuration": 100, "Positions": [ "SC:V" ], "Actions": [] },
+  { "Delay": 500, "PressDuration": 100, "Positions": [ "SC:C" ], "Actions": [] }
 ]

@@ -331,7 +331,6 @@
             Controls.Add(btnPause);
             Controls.Add(btnStart);
             Name = "Form1";
-            Text = "AutoClickScenarioTool";
             captureToolStrip.ResumeLayout(false);
             captureToolStrip.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvScenario).EndInit();

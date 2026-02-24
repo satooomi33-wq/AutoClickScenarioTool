@@ -12,9 +12,64 @@ namespace AutoClickScenarioTool.Services
         [DllImport("user32.dll", SetLastError = true)]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct INPUT
+        {
+            public uint type;
+            public INPUTUNION u;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct INPUTUNION
+        {
+            [FieldOffset(0)] public MOUSEINPUT mi;
+            [FieldOffset(0)] public KEYBDINPUT ki;
+            [FieldOffset(0)] public HARDWAREINPUT hi;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MOUSEINPUT
+        {
+            public int dx;
+            public int dy;
+            public uint mouseData;
+            public uint dwFlags;
+            public uint time;
+            public UIntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct KEYBDINPUT
+        {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public uint time;
+            public UIntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct HARDWAREINPUT
+        {
+            public uint uMsg;
+            public ushort wParamL;
+            public ushort wParamH;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint SendInput(uint nInputs, [In] INPUT[] pInputs, int cbSize);
+
+        private const uint INPUT_KEYBOARD = 1;
+        private const uint KEYEVENTF_UNICODE = 0x0004;
+        
+        [DllImport("user32.dll")]
+        private static extern uint MapVirtualKey(uint uCode, uint uMapType);
+
         private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
         private const uint MOUSEEVENTF_LEFTUP = 0x0004;
         private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const uint KEYEVENTF_SCANCODE = 0x0008;
+        private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
 
         public void ClickAt(Point p)
         {
@@ -60,12 +115,73 @@ namespace AutoClickScenarioTool.Services
                 }
 
                 // Main key
-                byte vk = ConvertKeyNameToVk(main);
-                if (vk != 0)
+                // Support explicit scan-code mode via prefix "SC:" (e.g., "SC:A" or "SC:65").
+                if (main.StartsWith("SC:", StringComparison.OrdinalIgnoreCase))
                 {
-                    keybd_event(vk, 0, 0, UIntPtr.Zero);
-                    Thread.Sleep(20);
-                    keybd_event(vk, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                    var rem = main.Substring(3).Trim();
+                    uint scan = 0;
+                    if (!uint.TryParse(rem, out scan))
+                    {
+                        // try as key name -> VK -> scan
+                        byte vk2 = ConvertKeyNameToVk(rem);
+                        if (vk2 != 0)
+                        {
+                            scan = MapVirtualKey(vk2, 0);
+                        }
+                    }
+
+                    if (scan != 0)
+                    {
+                        var inputs = new System.Collections.Generic.List<INPUT>();
+                        var down = new INPUT
+                        {
+                            type = INPUT_KEYBOARD,
+                            u = new INPUTUNION { ki = new KEYBDINPUT { wVk = 0, wScan = (ushort)scan, dwFlags = KEYEVENTF_SCANCODE, time = 0, dwExtraInfo = UIntPtr.Zero } }
+                        };
+                        var up = new INPUT
+                        {
+                            type = INPUT_KEYBOARD,
+                            u = new INPUTUNION { ki = new KEYBDINPUT { wVk = 0, wScan = (ushort)scan, dwFlags = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, time = 0, dwExtraInfo = UIntPtr.Zero } }
+                        };
+                        inputs.Add(down);
+                        inputs.Add(up);
+                        SendInput((uint)inputs.Count, inputs.ToArray(), Marshal.SizeOf(typeof(INPUT)));
+                    }
+                }
+                else
+                {
+                    byte vk = ConvertKeyNameToVk(main);
+                    if (vk != 0)
+                    {
+                        // Use keybd_event for known virtual-key codes (shortcuts, control keys, function keys)
+                        keybd_event(vk, 0, 0, UIntPtr.Zero);
+                        Thread.Sleep(20);
+                        keybd_event(vk, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                    }
+                    else
+                    {
+                        // Fallback: send as Unicode characters (handles IME and non-ASCII input)
+                        var inputs = new System.Collections.Generic.List<INPUT>();
+                        foreach (char ch in main)
+                        {
+                            var kiDown = new INPUT
+                            {
+                                type = INPUT_KEYBOARD,
+                                u = new INPUTUNION { ki = new KEYBDINPUT { wVk = 0, wScan = (ushort)ch, dwFlags = KEYEVENTF_UNICODE, time = 0, dwExtraInfo = UIntPtr.Zero } }
+                            };
+                            var kiUp = new INPUT
+                            {
+                                type = INPUT_KEYBOARD,
+                                u = new INPUTUNION { ki = new KEYBDINPUT { wVk = 0, wScan = (ushort)ch, dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, time = 0, dwExtraInfo = UIntPtr.Zero } }
+                            };
+                            inputs.Add(kiDown);
+                            inputs.Add(kiUp);
+                        }
+                        if (inputs.Count > 0)
+                        {
+                            SendInput((uint)inputs.Count, inputs.ToArray(), Marshal.SizeOf(typeof(INPUT)));
+                        }
+                    }
                 }
 
                 // Release modifiers
