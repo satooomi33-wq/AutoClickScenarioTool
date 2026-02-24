@@ -68,6 +68,7 @@
             lblDefaultPressDuration = new Label();
             txtDefaultPressDuration = new TextBox();
             btnSaveDefaults = new Button();
+            captureToolStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvScenario).BeginInit();
             SuspendLayout();
             // 
@@ -104,18 +105,60 @@
             btnStop.UseVisualStyleBackColor = true;
             btnStop.Click += btnStop_Click;
             // 
+            // captureToolStrip
+            // 
+            captureToolStrip.ImageScalingSize = new Size(28, 28);
+            captureToolStrip.Items.AddRange(new ToolStripItem[] { tsbDisable, tsbMouse, tsbKey, tslCaptureStatus });
+            captureToolStrip.Location = new Point(0, 0);
+            captureToolStrip.Name = "captureToolStrip";
+            captureToolStrip.Size = new Size(1211, 40);
+            captureToolStrip.TabIndex = 100;
+            captureToolStrip.Text = "captureToolStrip";
+            // 
+            // tsbDisable
+            // 
+            tsbDisable.Checked = true;
+            tsbDisable.CheckOnClick = true;
+            tsbDisable.CheckState = CheckState.Checked;
+            tsbDisable.Name = "tsbDisable";
+            tsbDisable.Size = new Size(59, 34);
+            tsbDisable.Text = "無効";
+            tsbDisable.Click += tsbDisable_Click;
+            // 
+            // tsbMouse
+            // 
+            tsbMouse.CheckOnClick = true;
+            tsbMouse.Name = "tsbMouse";
+            tsbMouse.Size = new Size(101, 34);
+            tsbMouse.Text = "座標抽出";
+            tsbMouse.Click += tsbMouse_Click;
+            // 
+            // tsbKey
+            // 
+            tsbKey.CheckOnClick = true;
+            tsbKey.Name = "tsbKey";
+            tsbKey.Size = new Size(89, 34);
+            tsbKey.Text = "キー抽出";
+            tsbKey.Click += tsbKey_Click;
+            // 
+            // tslCaptureStatus
+            // 
+            tslCaptureStatus.Name = "tslCaptureStatus";
+            tslCaptureStatus.Size = new Size(142, 34);
+            tslCaptureStatus.Text = "キャプチャ: 無効";
+            // 
             // txtDataFolder
             // 
-            txtDataFolder.Location = new Point(12, 42);
+            txtDataFolder.Location = new Point(12, 51);
             txtDataFolder.Name = "txtDataFolder";
             txtDataFolder.Size = new Size(600, 35);
             txtDataFolder.TabIndex = 4;
             // 
             // btnBrowse
             // 
-            btnBrowse.Location = new Point(618, 40);
+            btnBrowse.Location = new Point(618, 43);
             btnBrowse.Name = "btnBrowse";
-            btnBrowse.Size = new Size(75, 37);
+            btnBrowse.Size = new Size(75, 42);
             btnBrowse.TabIndex = 5;
             btnBrowse.Text = "参照";
             btnBrowse.UseVisualStyleBackColor = true;
@@ -124,66 +167,31 @@
             // cmbFiles
             // 
             cmbFiles.FormattingEnabled = true;
-            cmbFiles.Location = new Point(11, 97);
+            cmbFiles.Location = new Point(699, 47);
             cmbFiles.Name = "cmbFiles";
-            cmbFiles.Size = new Size(300, 38);
+            cmbFiles.Size = new Size(367, 38);
             cmbFiles.TabIndex = 6;
             cmbFiles.SelectedIndexChanged += cmbFiles_SelectedIndexChanged;
             cmbFiles.TextChanged += cmbFiles_TextChanged;
             // 
             // btnSave
             // 
-            btnSave.Location = new Point(493, 93);
+            btnSave.Location = new Point(1072, 43);
             btnSave.Name = "btnSave";
             btnSave.Size = new Size(85, 42);
             btnSave.TabIndex = 8;
             btnSave.Text = "保存";
             btnSave.UseVisualStyleBackColor = true;
             btnSave.Click += btnSave_Click;
-
-            // lblDefaultDelay
-            lblDefaultDelay.Location = new Point(320, 42);
-            lblDefaultDelay.Name = "lblDefaultDelay";
-            lblDefaultDelay.Size = new Size(120, 28);
-            lblDefaultDelay.Text = "デフォルト 遅延(ms)";
-
-            // txtDefaultDelay
-            txtDefaultDelay.Location = new Point(450, 40);
-            txtDefaultDelay.Name = "txtDefaultDelay";
-            txtDefaultDelay.Size = new Size(60, 35);
-            txtDefaultDelay.TabIndex = 11;
-            txtDefaultDelay.Text = "500";
-
-            // lblDefaultPressDuration
-            lblDefaultPressDuration.Location = new Point(520, 42);
-            lblDefaultPressDuration.Name = "lblDefaultPressDuration";
-            lblDefaultPressDuration.Size = new Size(140, 28);
-            lblDefaultPressDuration.Text = "デフォルト 押下時間(ms)";
-
-            // txtDefaultPressDuration
-            txtDefaultPressDuration.Location = new Point(670, 40);
-            txtDefaultPressDuration.Name = "txtDefaultPressDuration";
-            txtDefaultPressDuration.Size = new Size(60, 35);
-            txtDefaultPressDuration.TabIndex = 12;
-            txtDefaultPressDuration.Text = "100";
-
-            // btnSaveDefaults
-            btnSaveDefaults.Location = new Point(740, 38);
-            btnSaveDefaults.Name = "btnSaveDefaults";
-            btnSaveDefaults.Size = new Size(95, 38);
-            btnSaveDefaults.TabIndex = 13;
-            btnSaveDefaults.Text = "初期値保存";
-            btnSaveDefaults.UseVisualStyleBackColor = true;
-            btnSaveDefaults.Click += btnSaveDefaults_Click;
             // 
             // dgvScenario
             // 
             dgvScenario.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dgvScenario.Location = new Point(12, 223);
+            dgvScenario.Location = new Point(12, 180);
             dgvScenario.Name = "dgvScenario";
             dgvScenario.RowHeadersWidth = 72;
             dgvScenario.RowTemplate.Height = 25;
-            dgvScenario.Size = new Size(1167, 636);
+            dgvScenario.Size = new Size(1167, 679);
             dgvScenario.TabIndex = 9;
             dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
             dgvScenario.RowsAdded += dgvScenario_RowsChanged;
@@ -201,44 +209,54 @@
             txtLog.Size = new Size(1167, 88);
             txtLog.TabIndex = 10;
             // 
-            // captureToolStrip
+            // lblDefaultDelay
             // 
-            captureToolStrip.Items.AddRange(new ToolStripItem[] { tsbDisable, tsbMouse, tsbKey, new ToolStripSeparator(), tslCaptureStatus });
-            captureToolStrip.Location = new Point(0, 0);
-            captureToolStrip.Name = "captureToolStrip";
-            captureToolStrip.Size = new Size(1211, 30);
-            captureToolStrip.TabIndex = 100;
-            captureToolStrip.Text = "captureToolStrip";
-
-            // tsbDisable
-            tsbDisable.Text = "無効";
-            tsbDisable.CheckOnClick = true;
-            tsbDisable.Checked = true;
-            tsbDisable.Click += tsbDisable_Click;
-
-            // tsbMouse
-            tsbMouse.Text = "座標抽出";
-            tsbMouse.CheckOnClick = true;
-            tsbMouse.Click += tsbMouse_Click;
-
-            // tsbKey
-            tsbKey.Text = "キー抽出";
-            tsbKey.CheckOnClick = true;
-            tsbKey.Click += tsbKey_Click;
-
-            // tslCaptureStatus
-            tslCaptureStatus.Text = "キャプチャ: 無効";
-
-            // add toolstrip first
-            Controls.Add(captureToolStrip);
-
-            
+            lblDefaultDelay.Location = new Point(477, 124);
+            lblDefaultDelay.Name = "lblDefaultDelay";
+            lblDefaultDelay.Size = new Size(180, 35);
+            lblDefaultDelay.TabIndex = 101;
+            lblDefaultDelay.Text = "デフォルト 遅延(ms)";
+            // 
+            // txtDefaultDelay
+            // 
+            txtDefaultDelay.Location = new Point(663, 123);
+            txtDefaultDelay.Name = "txtDefaultDelay";
+            txtDefaultDelay.Size = new Size(60, 35);
+            txtDefaultDelay.TabIndex = 11;
+            txtDefaultDelay.Text = "500";
+            // 
+            // lblDefaultPressDuration
+            // 
+            lblDefaultPressDuration.Location = new Point(729, 126);
+            lblDefaultPressDuration.Name = "lblDefaultPressDuration";
+            lblDefaultPressDuration.Size = new Size(224, 33);
+            lblDefaultPressDuration.TabIndex = 102;
+            lblDefaultPressDuration.Text = "デフォルト 押下時間(ms)";
+            // 
+            // txtDefaultPressDuration
+            // 
+            txtDefaultPressDuration.Location = new Point(958, 124);
+            txtDefaultPressDuration.Name = "txtDefaultPressDuration";
+            txtDefaultPressDuration.Size = new Size(66, 35);
+            txtDefaultPressDuration.TabIndex = 12;
+            txtDefaultPressDuration.Text = "100";
+            // 
+            // btnSaveDefaults
+            // 
+            btnSaveDefaults.Location = new Point(1030, 124);
+            btnSaveDefaults.Name = "btnSaveDefaults";
+            btnSaveDefaults.Size = new Size(127, 35);
+            btnSaveDefaults.TabIndex = 13;
+            btnSaveDefaults.Text = "初期値保存";
+            btnSaveDefaults.UseVisualStyleBackColor = true;
+            btnSaveDefaults.Click += btnSaveDefaults_Click;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(12F, 30F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1211, 980);
+            Controls.Add(captureToolStrip);
             Controls.Add(txtLog);
             Controls.Add(dgvScenario);
             Controls.Add(btnSave);
@@ -255,6 +273,8 @@
             Controls.Add(btnStart);
             Name = "Form1";
             Text = "AutoClickScenarioTool";
+            captureToolStrip.ResumeLayout(false);
+            captureToolStrip.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvScenario).EndInit();
             ResumeLayout(false);
             PerformLayout();
