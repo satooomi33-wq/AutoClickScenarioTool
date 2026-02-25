@@ -378,6 +378,100 @@ namespace AutoClickScenarioTool
             }
         }
 
+        // 現在フォアグラウンドのプロセスが Visual Studio (devenv) かどうかを判定
+        private bool IsForegroundProcessVisualStudio()
+        {
+            try
+            {
+                var fg = GetForegroundWindow();
+                if (fg == IntPtr.Zero) return false;
+                GetWindowThreadProcessId(fg, out uint pid);
+                try
+                {
+                    var p = Process.GetProcessById((int)pid);
+                    var name = (p.ProcessName ?? string.Empty).ToLowerInvariant();
+                    return name.Contains("devenv");
+                }
+                catch { return false; }
+            }
+            catch { return false; }
+        }
+
+        // 親プロセスを辿って起動元が Visual Studio (devenv) かどうか判定（Toolhelp を使用）
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);
+
+        private const uint TH32CS_SNAPPROCESS = 0x00000002;
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        private struct PROCESSENTRY32
+        {
+            public uint dwSize;
+            public uint cntUsage;
+            public uint th32ProcessID;
+            public UIntPtr th32DefaultHeapID;
+            public uint th32ModuleID;
+            public uint cntThreads;
+            public uint th32ParentProcessID;
+            public int pcPriClassBase;
+            public uint dwFlags;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+            public string szExeFile;
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern bool Process32First(IntPtr hSnapshot, ref PROCESSENTRY32 lppe);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern bool Process32Next(IntPtr hSnapshot, ref PROCESSENTRY32 lppe);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        private bool IsLaunchedFromVisualStudio()
+        {
+            try
+            {
+                var snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+                if (snapshot == IntPtr.Zero || snapshot == new IntPtr(-1)) return false;
+                try
+                {
+                    var map = new Dictionary<uint, (uint parent, string exe)>();
+                    var entry = new PROCESSENTRY32();
+                    entry.dwSize = (uint)Marshal.SizeOf<PROCESSENTRY32>();
+                    if (Process32First(snapshot, ref entry))
+                    {
+                        do
+                        {
+                            map[entry.th32ProcessID] = (entry.th32ParentProcessID, entry.szExeFile ?? string.Empty);
+                        } while (Process32Next(snapshot, ref entry));
+                    }
+
+                    uint cur = (uint)Process.GetCurrentProcess().Id;
+                    var visited = new HashSet<uint>();
+                    while (cur != 0 && !visited.Contains(cur))
+                    {
+                        visited.Add(cur);
+                        if (!map.TryGetValue(cur, out var info)) break;
+                        var parent = info.parent;
+                        if (parent == 0) break;
+                        if (map.TryGetValue(parent, out var pinfo))
+                        {
+                            var name = (pinfo.exe ?? string.Empty).ToLowerInvariant();
+                            if (name.Contains("devenv")) return true;
+                        }
+                        cur = parent;
+                    }
+                }
+                finally
+                {
+                    try { CloseHandle(snapshot); } catch { }
+                }
+            }
+            catch { }
+            return false;
+        }
+
         private void _script_service_init()
         {
             _script_service_init_inner();
@@ -692,16 +786,40 @@ namespace AutoClickScenarioTool
 
         private void DgvScenario_CellMouseDown(object? sender, DataGridViewCellMouseEventArgs e)
         {
-            if (e.Button == MouseButtons.Right && e.RowIndex >= 0)
+            try
             {
-                try
+                if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+
+                // 右クリック: コンテキストメニュー表示（既存動作）
+                if (e.Button == MouseButtons.Right)
                 {
                     dgvScenario.CurrentCell = dgvScenario.Rows[e.RowIndex].Cells[e.ColumnIndex >= 0 ? e.ColumnIndex : 0];
                     if (_rowContextMenu != null)
                         _rowContextMenu.Show(Cursor.Position);
+                    return;
                 }
-                catch { }
+
+                // 左クリック: 選択だけでなく編集開始を試みる
+                if (e.Button == MouseButtons.Left)
+                {
+                    dgvScenario.CurrentCell = dgvScenario.Rows[e.RowIndex].Cells[e.ColumnIndex];
+
+                    // 編集開始は「キャプチャ無効（Disabled）」時のみ許可する
+                    if (_captureModeState == CaptureModeState.Disabled)
+                    {
+                        var col = dgvScenario.Columns[e.ColumnIndex];
+                        var name = col.Name ?? string.Empty;
+                        // Delay / PressDuration / Action* の列はマウスで編集開始を許可
+                        if (string.Equals(name, "Delay", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(name, "PressDuration", StringComparison.OrdinalIgnoreCase)
+                            || name.StartsWith("Action", StringComparison.OrdinalIgnoreCase))
+                        {
+                            try { dgvScenario.BeginEdit(true); } catch { }
+                        }
+                    }
+                }
             }
+            catch { }
         }
 
         // キー押下時の補助処理：選択状態(編集外)で Back/Delete を押したらセルを空にする
@@ -1479,127 +1597,134 @@ namespace AutoClickScenarioTool
                 RefreshNoColumn();
             }
             // 座標抽出後にアプリを前面に戻す
-            // 最前面化を安定させるため、詳細ログとリトライを行う
-            try
+            if (!System.Diagnostics.Debugger.IsAttached && !IsForegroundProcessVisualStudio())
             {
-                const uint ASFW_ANY = 0xFFFFFFFF;
-                var fgWnd = GetForegroundWindow();
-                uint fgThread = GetWindowThreadProcessId(fgWnd, out uint fgPid);
-                uint currentThread = GetCurrentThreadId();
-                AppendLog($"Foreground hWnd=0x{fgWnd.ToInt64():X}, fgPid={fgPid}, fgThread={fgThread}, currentThread={currentThread}");
-
-                // AllowSetForegroundWindow を試す（診断目的）
+                // 最前面化を安定させるため、詳細ログとリトライを行う
                 try
                 {
-                    var allowed = AllowSetForegroundWindow(ASFW_ANY);
-                    AppendLog($"AllowSetForegroundWindow(ASFW_ANY)={allowed}, err={Marshal.GetLastWin32Error()}");
-                }
-                catch (Exception ex)
-                {
-                    AppendLog("AllowSetForegroundWindow failed: " + ex.Message);
-                }
+                    const uint ASFW_ANY = 0xFFFFFFFF;
+                    var fgWnd = GetForegroundWindow();
+                    uint fgThread = GetWindowThreadProcessId(fgWnd, out uint fgPid);
+                    uint currentThread = GetCurrentThreadId();
+                    AppendLog($"Foreground hWnd=0x{fgWnd.ToInt64():X}, fgPid={fgPid}, fgThread={fgThread}, currentThread={currentThread}");
 
-                bool success = false;
-                for (int attempt = 0; attempt < 5 && !success; attempt++)
-                {
-                    AppendLog($"Foreground attempt {attempt + 1}");
-                    // Attach current thread to the foreground window thread, so SetForegroundWindow has a better chance
-                    bool attached = false;
+                    // AllowSetForegroundWindow を試す（診断目的）
                     try
                     {
-                        attached = AttachThreadInput(currentThread, fgThread, true);
-                        AppendLog($"AttachThreadInput current->{fgThread} result={attached}, err={Marshal.GetLastWin32Error()}");
+                        var allowed = AllowSetForegroundWindow(ASFW_ANY);
+                        AppendLog($"AllowSetForegroundWindow(ASFW_ANY)={allowed}, err={Marshal.GetLastWin32Error()}");
                     }
                     catch (Exception ex)
                     {
-                        AppendLog("AttachThreadInput exception: " + ex.Message);
+                        AppendLog("AllowSetForegroundWindow failed: " + ex.Message);
                     }
 
-                    // Try multiple ways to bring window up
-                    try { ShowWindowAsync(this.Handle, SW_SHOWNORMAL); } catch { }
-                    try { BringWindowToTop(this.Handle); } catch { }
-                    try { SetWindowPos(this.Handle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE); } catch { }
-                    try { SetForegroundWindow(this.Handle); } catch { }
-                    try { SetActiveWindow(this.Handle); } catch { }
-
-                    // simulate ALT to help focus rules
-                    try
+                    bool success = false;
+                    for (int attempt = 0; attempt < 5 && !success; attempt++)
                     {
-                        keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
-                        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                    }
-                    catch { }
+                        AppendLog($"Foreground attempt {attempt + 1}");
+                        // Attach current thread to the foreground window thread, so SetForegroundWindow has a better chance
+                        bool attached = false;
+                        try
+                        {
+                            attached = AttachThreadInput(currentThread, fgThread, true);
+                            AppendLog($"AttachThreadInput current->{fgThread} result={attached}, err={Marshal.GetLastWin32Error()}");
+                        }
+                        catch (Exception ex)
+                        {
+                            AppendLog("AttachThreadInput exception: " + ex.Message);
+                        }
 
-                    // detach if we attached
-                    if (attached)
-                    {
-                        try { AttachThreadInput(currentThread, fgThread, false); } catch { }
-                    }
+                        // Try multiple ways to bring window up
+                        try { ShowWindowAsync(this.Handle, SW_SHOWNORMAL); } catch { }
+                        try { BringWindowToTop(this.Handle); } catch { }
+                        try { SetWindowPos(this.Handle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE); } catch { }
+                        try { SetForegroundWindow(this.Handle); } catch { }
+                        try { SetActiveWindow(this.Handle); } catch { }
 
-                    // check if we're now foreground
-                    var nowFg = GetForegroundWindow();
-                    if (nowFg == this.Handle)
-                    {
-                        AppendLog("Became foreground window");
-                        success = true;
-                        break;
-                    }
+                        // simulate ALT to help focus rules
+                        try
+                        {
+                            keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+                            keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        }
+                        catch { }
 
-                    AppendLog($"Not foreground yet (nowFg=0x{nowFg.ToInt64():X}), sleeping before retry");
-                    Thread.Sleep(60);
+                        // detach if we attached
+                        if (attached)
+                        {
+                            try { AttachThreadInput(currentThread, fgThread, false); } catch { }
+                        }
+
+                        // check if we're now foreground
+                        var nowFg = GetForegroundWindow();
+                        if (nowFg == this.Handle)
+                        {
+                            AppendLog("Became foreground window");
+                            success = true;
+                            break;
+                        }
+
+                        AppendLog($"Not foreground yet (nowFg=0x{nowFg.ToInt64():X}), sleeping before retry");
+                        Thread.Sleep(60);
+                    }
+                    AppendLog($"Foreground attempts finished, success={success}");
                 }
-                AppendLog($"Foreground attempts finished, success={success}");
-            }
-            catch (Exception ex)
-            {
-                AppendLog("Foreground helper failed: " + ex.Message);
-            }
-
-            // If previous attempts failed to make us foreground, try a temporary focus-grabber window trick
-            try
-            {
-                // if still not foreground, create a tiny topmost window, activate it, then close it
-                var nowFg2 = GetForegroundWindow();
-                if (nowFg2 != this.Handle)
+                catch (Exception ex)
                 {
-                    AppendLog("Attempting temporary focus grabber trick");
-                    TemporaryFocusGrabber();
-                    var nowFg3 = GetForegroundWindow();
-                    AppendLog($"After grabber, foreground hWnd=0x{nowFg3.ToInt64():X}");
-                    // final attempt
-                    try { SetForegroundWindow(this.Handle); } catch { }
+                    AppendLog("Foreground helper failed: " + ex.Message);
                 }
+
+                // If previous attempts failed to make us foreground, try a temporary focus-grabber window trick
+                try
+                {
+                    // if still not foreground, create a tiny topmost window, activate it, then close it
+                    var nowFg2 = GetForegroundWindow();
+                    if (nowFg2 != this.Handle)
+                    {
+                        AppendLog("Attempting temporary focus grabber trick");
+                        TemporaryFocusGrabber();
+                        var nowFg3 = GetForegroundWindow();
+                        AppendLog($"After grabber, foreground hWnd=0x{nowFg3.ToInt64():X}");
+                        // final attempt
+                        try { SetForegroundWindow(this.Handle); } catch { }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("Focus grabber failed: " + ex.Message);
+                }
+                // make topmost briefly and keep it for a short duration to ensure visibility
+                var ok1 = SetWindowPos(this.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+                var err1 = Marshal.GetLastWin32Error();
+                AppendLog($"SetWindowPos TOPMOST result={ok1}, err={err1}");
+                try { Thread.Sleep(220); } catch { }
+                var ok2 = SetWindowPos(this.Handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+                var err2 = Marshal.GetLastWin32Error();
+                AppendLog($"SetWindowPos NOTOPMOST result={ok2}, err={err2}");
+                // 追加フォールバック：ShowWindow + SetWindowPos(HWND_TOP) + Altキー送信
+                try
+                {
+                    ShowWindow(this.Handle, SW_SHOWNORMAL);
+                    SetWindowPos(this.Handle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+                    // simulate ALT press/release to help SetForegroundWindow permissions
+                    keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+                    keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                    SetForegroundWindow(this.Handle);
+                    SetActiveWindow(this.Handle);
+                    AppendLog("Fallback foreground attempts executed");
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("Fallback foreground failed: " + ex.Message);
+                }
+                this.BringToFront();
+                this.Activate();
             }
-            catch (Exception ex)
+            else
             {
-                AppendLog("Focus grabber failed: " + ex.Message);
+                AppendLog("Debugger attached or VS foreground - skipping foreground/topmost hacks to avoid VS UI changes");
             }
-            // make topmost briefly and keep it for a short duration to ensure visibility
-            var ok1 = SetWindowPos(this.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
-            var err1 = Marshal.GetLastWin32Error();
-            AppendLog($"SetWindowPos TOPMOST result={ok1}, err={err1}");
-            try { Thread.Sleep(220); } catch { }
-            var ok2 = SetWindowPos(this.Handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-            var err2 = Marshal.GetLastWin32Error();
-            AppendLog($"SetWindowPos NOTOPMOST result={ok2}, err={err2}");
-            // 追加フォールバック：ShowWindow + SetWindowPos(HWND_TOP) + Altキー送信
-            try
-            {
-                ShowWindow(this.Handle, SW_SHOWNORMAL);
-                SetWindowPos(this.Handle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-                // simulate ALT press/release to help SetForegroundWindow permissions
-                keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
-                keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                SetForegroundWindow(this.Handle);
-                SetActiveWindow(this.Handle);
-                AppendLog("Fallback foreground attempts executed");
-            }
-            catch (Exception ex)
-            {
-                AppendLog("Fallback foreground failed: " + ex.Message);
-            }
-            this.BringToFront();
-            this.Activate();
             // DataGridViewの選択セルにフォーカス・編集状態・選択状態を明示的に戻す
             BeginInvoke(new Action(() => {
                 dgvScenario.CurrentCell = dgvScenario.Rows[rowIndex].Cells[targetCol];
