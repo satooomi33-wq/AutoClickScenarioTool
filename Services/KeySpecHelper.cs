@@ -32,13 +32,28 @@ namespace AutoClickScenarioTool.Services
             // 全角→半角（簡易）：NFKC 正規化で多くを変換
             s = s.Normalize(System.Text.NormalizationForm.FormKC);
 
-            // 座標パターン X,Y （整数）
-            var coordMatch = Regex.Match(s, @"^\s*(\d+)\s*,\s*(\d+)\s*$");
+            // 座標パターン X,Y （小数点・負数を許容） — 正規化して整数ピクセルに丸める
+            var coordMatch = Regex.Match(s, @"^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$");
             if (coordMatch.Success)
             {
-                var x = coordMatch.Groups[1].Value;
-                var y = coordMatch.Groups[2].Value;
-                return (true, $"{x},{y}", null);
+                if (double.TryParse(coordMatch.Groups[1].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var xd)
+                    && double.TryParse(coordMatch.Groups[2].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var yd))
+                {
+                    var xi = (int)Math.Round(xd);
+                    var yi = (int)Math.Round(yd);
+                    return (true, $"{xi},{yi}", null);
+                }
+                return (false, string.Empty, "座標の解析に失敗しました");
+            }
+
+            // 単独の数値（例: "-665.00"）は座標としては不十分なのでエラー扱いにする
+            var numericOnly = Regex.Match(s, "^\\s*-?\\d+(?:\\.\\d+)?\\s*$");
+            if (numericOnly.Success)
+            {
+                // If it is a pure number that contains a decimal point or is negative, treat as invalid coordinate input.
+                // Allow plain positive integers to proceed as numeric key codes.
+                if (s.Contains('.') || s.TrimStart().StartsWith("-"))
+                    return (false, string.Empty, "座標は 'X,Y' の形式で指定してください（例: -10,20）");
             }
 
             // キースペック処理: MOD1+MOD2+MAIN

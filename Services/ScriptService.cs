@@ -84,16 +84,22 @@ namespace AutoClickScenarioTool.Services
                         {
                             var s = a.Trim();
                             var parts = s.Split(',');
-                            if (parts.Length >= 2 && int.TryParse(parts[0].Trim(), out var xx) && int.TryParse(parts[1].Trim(), out var yy))
+                            // require two-axis coordinates. allow decimals and negative; normalize by rounding to int pixels
+                            if (parts.Length >= 2
+                                && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var dx)
+                                && double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var dy))
                             {
+                                var xx = (int)Math.Round(dx);
+                                var yy = (int)Math.Round(dy);
                                 var pl = new PositionList();
                                 pl.Points.Add(new Point(xx, yy));
                                 _input.ClickMultiple(pl);
-                                // small pause between actions
-                                await Task.Delay(30, token).ConfigureAwait(false);
+                                // small pause between actions — allow target window to become foreground
+                                await Task.Delay(120, token).ConfigureAwait(false);
                             }
                             else
                             {
+                                // treat as key action
                                 SendKeyAction(s);
                                 await Task.Delay(60, token).ConfigureAwait(false);
                             }
@@ -149,8 +155,12 @@ namespace AutoClickScenarioTool.Services
             foreach (var s in positions.Where(x => !string.IsNullOrWhiteSpace(x)))
             {
                 var parts = s.Split(',');
-                if (parts.Length >= 2 && int.TryParse(parts[0].Trim(), out var x) && int.TryParse(parts[1].Trim(), out var y))
+                if (parts.Length >= 2
+                    && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var dx)
+                    && double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var dy))
                 {
+                    var x = (int)Math.Round(dx);
+                    var y = (int)Math.Round(dy);
                     list.Points.Add(new Point(x, y));
                 }
             }

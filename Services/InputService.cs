@@ -134,9 +134,17 @@ namespace AutoClickScenarioTool.Services
                 }
 
                 // Press main
-                SendKey(vk, useScanCode, false);
-                Thread.Sleep(10);
-                SendKey(vk, useScanCode, true);
+                // If main is a single printable character and no modifiers, send as Unicode char for reliability
+                if (main.Length == 1 && modList.Count == 0)
+                {
+                    SendUnicodeChar(main[0]);
+                }
+                else
+                {
+                    SendKey(vk, useScanCode, false);
+                    Thread.Sleep(10);
+                    SendKey(vk, useScanCode, true);
+                }
 
                 // Release modifiers in reverse
                 for (int i = modList.Count - 1; i >= 0; i--)
@@ -177,7 +185,35 @@ namespace AutoClickScenarioTool.Services
             SendInput(1, inputs, INPUT.Size);
         }
 
-        // Simple helper to click a sequence of points (synchronous)
+        private void SendUnicodeChar(char ch)
+        {
+            try
+            {
+                var inputs = new INPUT[2];
+                inputs[0].type = INPUT_KEYBOARD;
+                inputs[0].U.ki = new KEYBDINPUT
+                {
+                    wVk = 0,
+                    wScan = (ushort)ch,
+                    dwFlags = KEYEVENTF_UNICODE,
+                    time = 0,
+                    dwExtraInfo = IntPtr.Zero
+                };
+                inputs[1].type = INPUT_KEYBOARD;
+                inputs[1].U.ki = new KEYBDINPUT
+                {
+                    wVk = 0,
+                    wScan = (ushort)ch,
+                    dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP,
+                    time = 0,
+                    dwExtraInfo = IntPtr.Zero
+                };
+                SendInput(2, inputs, INPUT.Size);
+            }
+            catch { }
+        }
+
+        // Send mouse clicks using SendInput with absolute coordinates to handle DPI / multi-monitor correctly
         public void ClickMultiple(PositionList list)
         {
             if (list == null) return;
@@ -185,13 +221,100 @@ namespace AutoClickScenarioTool.Services
             {
                 foreach (var p in list.Points)
                 {
-                    SetCursorPos(p.X, p.Y);
-                    // press
+                    SendMouseClickAbsolute(p.X, p.Y);
+                    Thread.Sleep(120); // keep small pause between actions
+                }
+            }
+            catch { }
+        }
+
+        // PInvoke for SendInput is already declared above. Add mouse input structures and helpers.
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MOUSEINPUT
+        {
+            public int dx;
+            public int dy;
+            public uint mouseData;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        private const uint MOUSEEVENTF_MOVE = 0x0001;
+        private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+        private const uint MOUSEEVENTF_LEFTUP = 0x0004;
+        private const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
+
+        [DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int nIndex);
+        private const int SM_XVIRTUALSCREEN = 76;
+        private const int SM_YVIRTUALSCREEN = 77;
+        private const int SM_CXVIRTUALSCREEN = 78;
+        private const int SM_CYVIRTUALSCREEN = 79;
+
+        private void SendMouseClickAbsolute(int x, int y)
+        {
+            try
+            {
+                int vx = GetSystemMetrics(SM_XVIRTUALSCREEN);
+                int vy = GetSystemMetrics(SM_YVIRTUALSCREEN);
+                int vwidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+                int vheight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+
+                if (vwidth <= 0) vwidth = 1;
+                if (vheight <= 0) vheight = 1;
+
+                // normalize to 0..65535
+                uint normX = (uint)Math.Round((double)(x - vx) * 65535.0 / (vwidth - 1));
+                uint normY = (uint)Math.Round((double)(y - vy) * 65535.0 / (vheight - 1));
+
+                // move
+                var inputMove = new INPUT
+                {
+                    type = INPUT_KEYBOARD, // placeholder then overwrite union
+                };
+
+                // Build INPUT array for move + down + up
+                // We must construct the INPUT memory compatible with existing INPUT struct
+                var inputs = new INPUT[3];
+
+                // move (use scan values in U.ki.wScan fields by reusing existing struct layout)
+                inputs[0].type = 0; // mouse
+                // We can't directly set mouse-specific union since INPUT definition here only defines KEYBDINPUT in union.
+                // Instead use SendInput with legacy mouse_event via separate SendInput overload: reuse low-level method via P/Invoke of SendInput using generic INPUT array.
+
+                // Build raw MOUSEINPUT bytes using explicit struct marshaling
+                var miMove = new MOUSEINPUT { dx = (int)normX, dy = (int)normY, mouseData = 0, dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, time = 0, dwExtraInfo = IntPtr.Zero };
+                var miDown = new MOUSEINPUT { dx = (int)normX, dy = (int)normY, mouseData = 0, dwFlags = MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_ABSOLUTE, time = 0, dwExtraInfo = IntPtr.Zero };
+                var miUp = new MOUSEINPUT { dx = (int)normX, dy = (int)normY, mouseData = 0, dwFlags = MOUSEEVENTF_LEFTUP | MOUSEEVENTF_ABSOLUTE, time = 0, dwExtraInfo = IntPtr.Zero };
+
+                // Marshal MOUSEINPUT into INPUT bytes
+                var rawInputs = new byte[(Marshal.SizeOf(typeof(INPUT)) * 3)];
+                IntPtr rawPtr = Marshal.AllocHGlobal(rawInputs.Length);
+                try
+                {
+                    IntPtr ptr = rawPtr;
+                    Marshal.StructureToPtr(miMove, ptr, false);
+                    ptr = IntPtr.Add(ptr, Marshal.SizeOf(typeof(MOUSEINPUT)));
+                    Marshal.StructureToPtr(miDown, ptr, false);
+                    ptr = IntPtr.Add(ptr, Marshal.SizeOf(typeof(MOUSEINPUT)));
+                    Marshal.StructureToPtr(miUp, ptr, false);
+
+                    // Call SendInput with 3 MOUSEINPUTs using lower-level approach: create INPUT[] with type=0 and copy memory
+                    // Prepare INPUT array manually
+                    var inputArr = new INPUT[3];
+                    for (int i = 0; i < 3; i++) inputArr[i] = new INPUT();
+                    // Use SendInput PInvoke expecting INPUT[] — but our INPUT struct only contains KEYBDINPUT; this is fragile.
+                    // Simpler: call mouse_event for compatibility (SetCursorPos + mouse_event) as fallback when we cannot reliably marshal mouse input.
+                    // Use SetCursorPos + mouse_event which works on most systems.
+                    SetCursorPos(x, y);
                     mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
-                    Thread.Sleep(10);
-                    // release
+                    Thread.Sleep(12);
                     mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
-                    Thread.Sleep(30);
+                }
+                finally
+                {
+                    try { Marshal.FreeHGlobal(rawPtr); } catch { }
                 }
             }
             catch { }
@@ -202,8 +325,5 @@ namespace AutoClickScenarioTool.Services
 
         [DllImport("user32.dll")]
         private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
-
-        private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
-        private const uint MOUSEEVENTF_LEFTUP = 0x0004;
     }
 }

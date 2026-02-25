@@ -29,6 +29,9 @@ namespace AutoClickScenarioTool
         private bool _isPaused = false;
         private DataGridViewEditMode _savedEditMode = DataGridViewEditMode.EditOnKeystroke;
 
+        // Expose script running state for external helpers (e.g. message filter)
+        public bool IsScriptRunning => _scriptService?.IsRunning ?? false;
+
         
 
         private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
@@ -98,6 +101,18 @@ namespace AutoClickScenarioTool
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
         [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
         private const int SW_SHOWNORMAL = 1;
@@ -121,7 +136,8 @@ namespace AutoClickScenarioTool
             // ScanCode トグルの初期ハンドラ（Designer 上に tsbScanCode を配置してください）
             try
             {
-                var tsb = this.Controls.Find("tsbScanCode", true).OfType<ToolStripButton>().FirstOrDefault();
+                // ToolStrip buttons are not in the Form.Controls collection; search the ToolStrip items instead.
+                var tsb = captureToolStrip?.Items.OfType<ToolStripButton>().FirstOrDefault(x => string.Equals(x.Name, "tsbScanCode", StringComparison.Ordinal));
                 if (tsb != null)
                 {
                     tsb.Click += (s, e) =>
@@ -139,6 +155,7 @@ namespace AutoClickScenarioTool
                         catch { }
                     };
                 }
+
             }
             catch { }
 
@@ -509,7 +526,8 @@ namespace AutoClickScenarioTool
             _scriptService = script!;
             _scriptService.OnLog += s => AppendLog(s);
             _scriptService.OnStopped += () => Invoke(new Action(ScriptStopped));
-            _scriptService.OnPaused += (idx) => Invoke(new Action<int>(HandlePaused));
+            // Ensure Invoke is called with the parameter so delegate parameter counts match
+            _scriptService.OnPaused += (idx) => Invoke(new Action<int>(HandlePaused), idx);
         }
 
         // wrappers to avoid tiny naming collisions
@@ -554,11 +572,19 @@ namespace AutoClickScenarioTool
                     if (row.IsNewRow) continue;
                     if (_defaultSettings != null)
                     {
-                        // only set if cells empty
-                        if (dgvScenario.ColumnCount > 1 && (row.Cells[1].Value == null || string.IsNullOrWhiteSpace(row.Cells[1].Value.ToString())))
-                            row.Cells[1].Value = _defaultSettings.Delay;
-                        if (dgvScenario.ColumnCount > 2 && (row.Cells[2].Value == null || string.IsNullOrWhiteSpace(row.Cells[2].Value.ToString())))
-                            row.Cells[2].Value = _defaultSettings.PressDuration;
+                        // only set if cells empty (use safe null propagation)
+                        if (dgvScenario.ColumnCount > 1)
+                        {
+                            var v1 = row.Cells[1].Value?.ToString();
+                            if (string.IsNullOrWhiteSpace(v1))
+                                row.Cells[1].Value = _defaultSettings.Delay;
+                        }
+                        if (dgvScenario.ColumnCount > 2)
+                        {
+                            var v2 = row.Cells[2].Value?.ToString();
+                            if (string.IsNullOrWhiteSpace(v2))
+                                row.Cells[2].Value = _defaultSettings.PressDuration;
+                        }
                     }
                 }
             }
@@ -661,6 +687,19 @@ namespace AutoClickScenarioTool
 
         private void SetCaptureMode(CaptureModeState mode)
         {
+            // Ensure any in-progress cell edit is ended and move focus away from the grid
+            try
+            {
+                if (dgvScenario != null && dgvScenario.IsCurrentCellInEditMode)
+                {
+                    // commit/cancel edit so cells are not left editable when switching modes
+                    try { dgvScenario.EndEdit(); } catch { }
+                }
+                // move focus to the toolbar so DataGridView is not focused (prevents accidental editing)
+                try { captureToolStrip?.Focus(); } catch { }
+            }
+            catch { }
+
             if (_captureModeState == mode) { UpdateToolbarButtons(); return; }
             try
             {
@@ -709,7 +748,7 @@ namespace AutoClickScenarioTool
                     catch { return false; }
                 };
                 // prevent DataGridView from entering edit mode on key press
-                try { _savedEditMode = dgvScenario.EditMode; dgvScenario.EditMode = DataGridViewEditMode.EditProgrammatically; } catch { }
+                try { if (dgvScenario != null) { _savedEditMode = dgvScenario.EditMode; dgvScenario.EditMode = DataGridViewEditMode.EditProgrammatically; } } catch { }
                 _keyboardHook.Start();
                 AppendLog("Capture mode: Key ON");
             }
@@ -724,9 +763,9 @@ namespace AutoClickScenarioTool
                 try
                 {
                     if (InvokeRequired)
-                        Invoke(new Action(() => { try { dgvScenario.EditMode = _savedEditMode; } catch { } }));
+                        Invoke(new Action(() => { try { if (dgvScenario != null) dgvScenario.EditMode = _savedEditMode; } catch { } }));
                     else
-                        dgvScenario.EditMode = _savedEditMode;
+                        if (dgvScenario != null) dgvScenario.EditMode = _savedEditMode;
                 }
                 catch { }
             }
@@ -951,8 +990,10 @@ namespace AutoClickScenarioTool
                     var (ok, normalized, error) = AutoClickScenarioTool.Services.KeySpecHelper.ValidateAndNormalize(raw);
                     if (!ok)
                     {
-                        e.Cancel = true;
-                        MessageBox.Show(error ?? "無効な入力です。", "入力エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        // show error, clear the cell and allow edit to finish so user isn't stuck in error state
+                        try { MessageBox.Show(error ?? "無効な入力です。", "入力エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning); } catch { }
+                        try { dgvScenario.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = string.Empty; } catch { }
+                        e.Cancel = false;
                         return;
                     }
 
@@ -1239,6 +1280,9 @@ namespace AutoClickScenarioTool
                 btnPause.Enabled = true;
                 btnStop.Enabled = true;
 
+                // Ensure the service is not left in paused state from previous stop/pause
+                try { _scriptService?.Resume(); } catch { }
+
                 // Apply current humanize settings (from defaults/UI) to the script service before starting
                 try
                 {
@@ -1292,10 +1336,10 @@ namespace AutoClickScenarioTool
             btnPause.Enabled = false;
             btnStop.Enabled = false;
             _isPaused = false;
+            // Do not call Pause after Stop; Stop() will signal the pause event and cancel the token.
             if (dgvScenario.Rows.Count > 0)
             {
-                _script_service_pause();
-                // bring app front when user requests pause
+                // bring app front when user requests stop
                 try { SetForegroundWindow(this.Handle); } catch { }
             }
         }
@@ -1491,6 +1535,17 @@ namespace AutoClickScenarioTool
                 Invoke(new Action(() => HandleGlobalMouseClick(x, y)));
                 return;
             }
+            // Ignore mouse hook events generated by our own playback to avoid
+            // overwriting grid cells with synthetic click coordinates.
+            try
+            {
+                if (_scriptService != null && _scriptService.IsRunning)
+                {
+                    AppendLog("HandleGlobalMouseClick: ignored during script run");
+                    return;
+                }
+            }
+            catch { }
             // ログ出力：マウスフックイベント到達確認
             AppendLog($"OnMouseClick raw: {x},{y}");
             // 座標カラムのセルにフォーカスがある場合のみ抽出
@@ -1529,102 +1584,70 @@ namespace AutoClickScenarioTool
                 }
             }
 
-            // 追加判定：Application.OpenForms の領域に含まれるか、
-            // クリック先ハンドルが各フォームの子ウィンドウかを確認
+            // 追加判定：Application.OpenForms の領域に含まれるか、クリック先ハンドルが各フォームの子ウィンドウかを確認
             AppendLog($"Probe: pt={pt.X},{pt.Y}, hWnd=0x{hWnd.ToInt64():X}");
             foreach (Form f in Application.OpenForms)
             {
-                var formScreenPos = f.PointToScreen(System.Drawing.Point.Empty);
-                var rect = new System.Drawing.Rectangle(formScreenPos, f.Size);
-                AppendLog($"Form '{f.Name}' rect={rect.X},{rect.Y} size={rect.Width}x{rect.Height} handle=0x{f.Handle.ToInt64():X}");
-
-                // obtain monitor DPI for the monitor where the form is located
-                var monForForm = MonitorFromPoint(new System.Drawing.Point(formScreenPos.X + rect.Width / 2, formScreenPos.Y + rect.Height / 2), MONITOR_DEFAULTTONEAREST);
-                double formScale = 1.0;
-                if (monForForm != IntPtr.Zero)
+                try
                 {
-                    try
+                    // Try to obtain the real window rectangle in physical screen coordinates
+                    if (f.Handle != IntPtr.Zero && GetWindowRect(f.Handle, out RECT wrec))
                     {
-                        var rr = GetDpiForMonitor(monForForm, MDT_EFFECTIVE_DPI, out uint fdpiX, out uint fdpiY);
-                        if (rr == 0 && fdpiX > 0) formScale = fdpiX / 96.0;
-                        AppendLog($"  form monitor hMon=0x{monForForm.ToInt64():X}, dpiX={fdpiX}, scale={formScale}");
-                    }
-                    catch (Exception ex)
-                    {
-                        AppendLog("  GetDpiForMonitor(form) error: " + ex.Message);
-                    }
-                }
-
-                // compute physical bounds of the form (approx)
-                var physRect = new System.Drawing.Rectangle((int)(formScreenPos.X * formScale), (int)(formScreenPos.Y * formScale), (int)(rect.Width * formScale), (int)(rect.Height * formScale));
-                var pt_physical = new System.Drawing.Point(x, y);
-                var pt_logical_byForm = new System.Drawing.Point((int)(x / formScale), (int)(y / formScale));
-                var pt_scaled_byForm = new System.Drawing.Point((int)(x * formScale), (int)(y * formScale));
-
-                // also probe the monitor that contains the click point and try its DPI/scale
-                var monForPoint = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-                double ptScale = 1.0;
-                if (monForPoint != IntPtr.Zero)
-                {
-                    try
-                    {
-                        var r = GetDpiForMonitor(monForPoint, MDT_EFFECTIVE_DPI, out uint pdpiX, out uint pdpiY);
-                        if (r == 0 && pdpiX > 0) ptScale = pdpiX / 96.0;
-                        AppendLog($"  point monitor hMon=0x{monForPoint.ToInt64():X}, dpiX={pdpiX}, scale={ptScale}");
-                    }
-                    catch (Exception ex)
-                    {
-                        AppendLog("  GetDpiForMonitor(point) error: " + ex.Message);
-                    }
-                }
-                var pt_logical_byPoint = new System.Drawing.Point((int)(x / ptScale), (int)(y / ptScale));
-                var pt_scaled_byPoint = new System.Drawing.Point((int)(x * ptScale), (int)(y * ptScale));
-
-                bool match_physical = physRect.Contains(pt_physical);
-                bool match_logical_byForm = rect.Contains(pt_logical_byForm);
-                bool match_scaled_byForm = rect.Contains(pt_scaled_byForm);
-                bool match_logical_byPoint = rect.Contains(pt_logical_byPoint);
-                bool match_scaled_byPoint = rect.Contains(pt_scaled_byPoint);
-
-                AppendLog($"  matches: physical={match_physical}, logical_byForm={match_logical_byForm}, scaled_byForm={match_scaled_byForm}, logical_byPoint={match_logical_byPoint}, scaled_byPoint={match_scaled_byPoint}, physRect={physRect}");
-
-                if (match_physical || match_logical_byForm || match_scaled_byForm || match_logical_byPoint || match_scaled_byPoint)
-                {
-                    AppendLog($"Point considered inside form '{f.Name}' by one of transforms -> ignore");
-                    return;
-                }
-
-                // 親チェーンを辿ってクリック先ハンドルがこのフォームの子ウィンドウか確認
-                var cur = hWnd;
-                while (cur != IntPtr.Zero)
-                {
-                    AppendLog($" ancestor=0x{cur.ToInt64():X}, info={GetWindowInfo(cur)}");
-                    if (cur == f.Handle)
-                    {
-                        AppendLog($"hWnd is child of form '{f.Name}' -> ignore");
-                        return;
-                    }
-                    var parent = GetParent(cur);
-                    if (parent == IntPtr.Zero)
-                    {
-                        var root = GetAncestor(cur, GA_ROOT);
-                        if (root != IntPtr.Zero && root == f.Handle)
+                        var winRect = new System.Drawing.Rectangle(wrec.Left, wrec.Top, wrec.Right - wrec.Left, wrec.Bottom - wrec.Top);
+                        AppendLog($"Form '{f.Name}' winRect={winRect} handle=0x{f.Handle.ToInt64():X}");
+                        if (winRect.Contains(pt))
                         {
-                            AppendLog($"ancestor root==form '{f.Name}' -> ignore");
+                            AppendLog($"Point considered inside form '{f.Name}' (GetWindowRect) -> ignore");
                             return;
                         }
-                        break;
                     }
-                    cur = parent;
+                    else
+                    {
+                        // fallback: use PointToScreen (logical coords) but compare with the raw point conservatively
+                        var formScreenPos = f.PointToScreen(System.Drawing.Point.Empty);
+                        var rect = new System.Drawing.Rectangle(formScreenPos, f.Size);
+                        AppendLog($"Form '{f.Name}' rect={rect} handle=0x{f.Handle.ToInt64():X}");
+                        if (rect.Contains(pt))
+                        {
+                            AppendLog($"Point considered inside form '{f.Name}' (fallback) -> ignore");
+                            return;
+                        }
+                    }
+                    // also check parent chain: if clicked window belongs to this form, ignore
+                    var cur = hWnd;
+                    while (cur != IntPtr.Zero)
+                    {
+                        if (cur == f.Handle)
+                        {
+                            AppendLog($"hWnd is child of form '{f.Name}' -> ignore");
+                            return;
+                        }
+                        var parent = GetParent(cur);
+                        if (parent == IntPtr.Zero) break;
+                        cur = parent;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppendLog($"Form probe error: {ex.Message}");
                 }
             }
             int rowIndex = dgvScenario.CurrentCell.RowIndex;
             int targetCol = dgvScenario.CurrentCell.ColumnIndex;
             if (dgvScenario.IsCurrentCellInEditMode)
                 dgvScenario.EndEdit();
-            dgvScenario.Rows[rowIndex].Cells[targetCol].Value = $"{x},{y}";
-            RefreshNoColumn();
-            AppendLog($"座標取得: {x},{y}");
+            var raw = $"{x},{y}";
+            var (ok, normalized, err) = AutoClickScenarioTool.Services.KeySpecHelper.ValidateAndNormalize(raw);
+            if (ok && !string.IsNullOrWhiteSpace(normalized))
+            {
+                dgvScenario.Rows[rowIndex].Cells[targetCol].Value = normalized;
+                RefreshNoColumn();
+                AppendLog($"座標取得: {normalized}");
+            }
+            else
+            {
+                AppendLog($"座標取得失敗(無効形式): {raw} -> {err}");
+            }
             if (rowIndex == dgvScenario.Rows.Count - 2 && dgvScenario.AllowUserToAddRows)
             {
                 dgvScenario.Rows.Add();
@@ -1817,15 +1840,26 @@ namespace AutoClickScenarioTool
         if (m.Msg == WM_LBUTTONDOWN)
         {
             var cursorPos = System.Windows.Forms.Cursor.Position;
+            // Ignore while script running to avoid capturing our own playback clicks
+            try { if (_form.IsScriptRunning) return false; } catch { }
             // 条件を緩和：どこをクリックしても抽出する
             if (_form.dgvScenario.CurrentCell == null) return false;
             int rowIndex = _form.dgvScenario.CurrentCell.RowIndex;
             int targetCol = _form.dgvScenario.CurrentCell.ColumnIndex;
             if (_form.dgvScenario.IsCurrentCellInEditMode)
                 _form.dgvScenario.EndEdit();
-            _form.dgvScenario.Rows[rowIndex].Cells[targetCol].Value = $"{cursorPos.X},{cursorPos.Y}";
-            _form.RefreshNoColumn();
-            _form.AppendLog($"座標取得: {cursorPos.X},{cursorPos.Y}");
+            var raw = $"{cursorPos.X},{cursorPos.Y}";
+            var (ok, normalized, err) = AutoClickScenarioTool.Services.KeySpecHelper.ValidateAndNormalize(raw);
+            if (ok && !string.IsNullOrWhiteSpace(normalized))
+            {
+                _form.dgvScenario.Rows[rowIndex].Cells[targetCol].Value = normalized;
+                _form.RefreshNoColumn();
+                _form.AppendLog($"座標取得: {normalized}");
+            }
+            else
+            {
+                _form.AppendLog($"座標取得失敗(無効形式): {raw} -> {err}");
+            }
             if (rowIndex == _form.dgvScenario.Rows.Count - 2 && _form.dgvScenario.AllowUserToAddRows)
             {
                 _form.dgvScenario.Rows.Add();

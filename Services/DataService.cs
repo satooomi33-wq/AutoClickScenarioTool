@@ -14,7 +14,11 @@ namespace AutoClickScenarioTool.Services
             if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
                 return Enumerable.Empty<string>();
 
-            return Directory.EnumerateFiles(folder, "*.json").Select(Path.GetFileName);
+            // Path.GetFileName can return null in some API annotations; filter nulls and cast to non-nullable
+            return Directory.EnumerateFiles(folder, "*.json")
+                .Select(Path.GetFileName)
+                .Where(n => n != null)
+                .Select(n => n!);
         }
 
         public async Task<List<ScenarioStep>> LoadAsync(string filePath)
