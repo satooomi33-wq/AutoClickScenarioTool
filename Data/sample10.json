@@ -2,19 +2,18 @@
   {
     "Delay": 600,
     "PressDuration": 100,
-    "Actions": [
-      "11,22",
-      "33,44",
-      "55,66"
-    ]
+    "Positions": [
+      "S",
+      "A",
+      "s",
+      "d"
+    ],
+    "Actions": []
   },
   {
     "Delay": 420,
     "PressDuration": 100,
-    "Actions": [
-      "77,88",
-      "1457,231",
-      "1353,674"
-    ]
+    "Positions": [],
+    "Actions": []
   }
 ]

@@ -118,6 +118,16 @@ namespace AutoClickScenarioTool
 
             CreateGridColumns();
 
+            // 保存：現在の EditMode を記憶（復元用）
+            try { _savedEditMode = dgvScenario.EditMode; } catch { }
+            // 選択（青）状態でも Back/Delete でクリア、ダブルクリックで編集開始できるようにする
+            try
+            {
+                dgvScenario.KeyDown += DgvScenario_KeyDown;
+                dgvScenario.CellDoubleClick += DgvScenario_CellDoubleClick;
+            }
+            catch { }
+
             // プロジェクト直下のDataを優先し、なければbin配下を使う
             try
             {
@@ -569,7 +579,13 @@ namespace AutoClickScenarioTool
                         var cell = dgvScenario.CurrentCell;
                         if (cell == null) return false;
                         var col = dgvScenario.Columns[cell.ColumnIndex];
-                        return col.Name.StartsWith("Action", StringComparison.OrdinalIgnoreCase);
+                        if (!col.Name.StartsWith("Action", StringComparison.OrdinalIgnoreCase)) return false;
+
+                        // Allow Backspace/Delete so user can clear cell contents while in capture mode
+                        if ((GetAsyncKeyState((int)System.Windows.Forms.Keys.Back) & 0x8000) != 0) return false;
+                        if ((GetAsyncKeyState((int)System.Windows.Forms.Keys.Delete) & 0x8000) != 0) return false;
+
+                        return true; // suppress other keys while capturing
                     }
                     catch { return false; }
                 };
@@ -583,10 +599,17 @@ namespace AutoClickScenarioTool
                 AppendLog("Capture mode: Disabled");
             }
 
-            // restore edit mode when leaving key capture
+            // restore edit mode when leaving key capture (ensure UI-thread)
             if (mode != CaptureModeState.Key)
             {
-                try { dgvScenario.EditMode = _savedEditMode; } catch { }
+                try
+                {
+                    if (InvokeRequired)
+                        Invoke(new Action(() => { try { dgvScenario.EditMode = _savedEditMode; } catch { } }));
+                    else
+                        dgvScenario.EditMode = _savedEditMode;
+                }
+                catch { }
             }
 
             UpdateToolbarButtons();
@@ -681,6 +704,57 @@ namespace AutoClickScenarioTool
             }
         }
 
+        // キー押下時の補助処理：選択状態(編集外)で Back/Delete を押したらセルを空にする
+        private void DgvScenario_KeyDown(object? sender, KeyEventArgs e)
+        {
+            try
+            {
+                if (e == null) return;
+
+                // キャプチャの Key モード中はグローバルフックが処理するためここでは無視
+                if (_captureModeState == CaptureModeState.Key) return;
+
+                if (dgvScenario.CurrentCell == null) return;
+                var col = dgvScenario.Columns[dgvScenario.CurrentCell.ColumnIndex];
+                if (!col.Name.StartsWith("Action", StringComparison.OrdinalIgnoreCase)) return;
+
+                // 編集モードでなければ特別扱い
+                if (!dgvScenario.IsCurrentCellInEditMode)
+                {
+                    if (e.KeyCode == Keys.Back || e.KeyCode == Keys.Delete)
+                    {
+                        dgvScenario.CurrentCell.Value = string.Empty;
+                        RefreshNoColumn();
+                        e.Handled = true;
+                        e.SuppressKeyPress = true;
+                        return;
+                    }
+
+                    // それ以外のキーは編集を開始してから DataGridView に処理させる
+                    dgvScenario.BeginEdit(true);
+                }
+            }
+            catch { }
+        }
+
+        // ダブルクリックで確実に編集開始する（キャプチャ Key モード中は開始しない）
+        private void DgvScenario_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
+        {
+            try
+            {
+                if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+                var col = dgvScenario.Columns[e.ColumnIndex];
+                if (!col.Name.StartsWith("Action", StringComparison.OrdinalIgnoreCase)) return;
+
+                if (_captureModeState != CaptureModeState.Key)
+                {
+                    dgvScenario.CurrentCell = dgvScenario.Rows[e.RowIndex].Cells[e.ColumnIndex];
+                    dgvScenario.BeginEdit(true);
+                }
+            }
+            catch { }
+        }
+
         private void DgvScenario_MouseDown(object? sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
@@ -720,21 +794,31 @@ namespace AutoClickScenarioTool
             try
             {
                 var col = dgvScenario.Columns[e.ColumnIndex];
-                var newVal = e.FormattedValue?.ToString() ?? string.Empty;
+                var raw = e.FormattedValue?.ToString() ?? string.Empty;
                 if (col.Name.StartsWith("Action", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (string.IsNullOrWhiteSpace(newVal)) return;
-                    var v = newVal.Trim();
-                    // coordinate check: X,Y
-                    var parts = v.Split(',');
-                    if (parts.Length >= 2 && int.TryParse(parts[0].Trim(), out _) && int.TryParse(parts[1].Trim(), out _))
+                    // 空欄は許可（アクションなし）
+                    if (string.IsNullOrWhiteSpace(raw))
+                    {
+                        // 空に正規化しておく
+                        dgvScenario.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = string.Empty;
                         return;
-                    // otherwise validate as key spec (simple)
-                    if (!IsValidKeySpec(v))
+                    }
+
+                    var (ok, normalized, error) = AutoClickScenarioTool.Services.KeySpecHelper.ValidateAndNormalize(raw);
+                    if (!ok)
                     {
                         e.Cancel = true;
-                        MessageBox.Show("アクションは 'X,Y' またはキー指定（例: A, Enter, Ctrl+S）で入力してください。", "入力エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        MessageBox.Show(error ?? "無効な入力です。", "入力エラー", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
                     }
+
+                    // 正常: 正規化値で上書き（例: 全角→半角→大文字化、修飾子順の標準化）
+                    try
+                    {
+                        dgvScenario.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = normalized;
+                    }
+                    catch { }
                 }
             }
             catch { }
@@ -973,9 +1057,18 @@ namespace AutoClickScenarioTool
 
                 for (int i = 0; i < 10; i++)
                 {
-                    var v = row.Cells[3 + i].Value?.ToString();
-                    if (!string.IsNullOrWhiteSpace(v))
-                        step.Positions.Add(v.Trim());
+                    var raw = row.Cells[3 + i].Value?.ToString();
+                    if (string.IsNullOrWhiteSpace(raw)) continue;
+                    var (ok, normalized, error) = AutoClickScenarioTool.Services.KeySpecHelper.ValidateAndNormalize(raw);
+                    if (ok && !string.IsNullOrWhiteSpace(normalized))
+                    {
+                        step.Positions.Add(normalized);
+                    }
+                    else
+                    {
+                        // invalid: skip and log for diagnosis
+                        try { AppendLog($"読み飛ばし: 行{row.Index + 1} 列{3 + i} の無効なアクション -> {error ?? "不正な入力"}"); } catch { }
+                    }
                 }
                 list.Add(step);
             }
