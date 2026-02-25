@@ -10,5 +10,8 @@ namespace AutoClickScenarioTool.Models
         public bool HumanizeEnabled { get; set; } = false;
         public int HumanizeLower { get; set; } = 30;
         public int HumanizeUpper { get; set; } = 100;
+
+        // New: persist user's preferred runtime SC mode
+        public bool UseScanCode { get; set; } = false;
     }
 }

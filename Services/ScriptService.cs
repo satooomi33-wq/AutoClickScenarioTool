@@ -26,6 +26,9 @@ namespace AutoClickScenarioTool.Services
         public int HumanizeUpper { get; set; } = 100;
         private readonly Random _rng = new Random();
 
+        // New: toggle whether to send keys by scan code at runtime
+        public bool UseScanCode { get; set; } = false;
+
         public ScriptService(InputService input)
         {
             _input = input;
@@ -91,7 +94,7 @@ namespace AutoClickScenarioTool.Services
                             }
                             else
                             {
-                                _input.SendKey(s);
+                                SendKeyAction(s);
                                 await Task.Delay(60, token).ConfigureAwait(false);
                             }
                         }
@@ -152,6 +155,29 @@ namespace AutoClickScenarioTool.Services
                 }
             }
             return list;
+        }
+
+        // Example helper used by the service when sending a key action
+        private void SendKeyAction(string keySpec)
+        {
+            try
+            {
+                if (UseScanCode)
+                {
+                    // InputService should provide scan-code based sending API
+                    _input.SendByScanCode(keySpec);
+                    OnLog?.Invoke($"Send by ScanCode: {keySpec}");
+                }
+                else
+                {
+                    _input.SendByKeyName(keySpec);
+                    OnLog?.Invoke($"Send by KeyName: {keySpec}");
+                }
+            }
+            catch (Exception ex)
+            {
+                OnLog?.Invoke($"SendKeyAction failed: {ex.Message}");
+            }
         }
     }
 }

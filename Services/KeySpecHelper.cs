@@ -27,7 +27,7 @@ namespace AutoClickScenarioTool.Services
 
             // 禁止トークン "SC" を含む場合は拒否
             if (s.IndexOf("SC", StringComparison.OrdinalIgnoreCase) >= 0)
-                return (false, null, "\"SC\" は入力できません");
+                return (false, string.Empty, "\"SC\" は入力できません");
 
             // 全角→半角（簡易）：NFKC 正規化で多くを変換
             s = s.Normalize(System.Text.NormalizationForm.FormKC);
@@ -53,7 +53,7 @@ namespace AutoClickScenarioTool.Services
             {
                 var upm = m.ToUpperInvariant();
                 if (upm != "CTRL" && upm != "ALT" && upm != "SHIFT")
-                    return (false, null, $"不明な修飾子: {m}");
+                    return (false, string.Empty, $"不明な修飾子: {m}");
             }
 
             // メインキー検証と正規化
@@ -72,7 +72,7 @@ namespace AutoClickScenarioTool.Services
                 }
                 else
                 {
-                    return (false, null, $"無効なキー: {main}");
+                    return (false, string.Empty, $"無効なキー: {main}");
                 }
             }
             else
@@ -90,7 +90,7 @@ namespace AutoClickScenarioTool.Services
                     }
                     else
                     {
-                        return (false, null, $"無効なキー名: {main}");
+                        return (false, string.Empty, $"無効なキー名: {main}");
                     }
                 }
             }

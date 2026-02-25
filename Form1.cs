@@ -118,6 +118,30 @@ namespace AutoClickScenarioTool
 
             CreateGridColumns();
 
+            // ScanCode トグルの初期ハンドラ（Designer 上に tsbScanCode を配置してください）
+            try
+            {
+                var tsb = this.Controls.Find("tsbScanCode", true).OfType<ToolStripButton>().FirstOrDefault();
+                if (tsb != null)
+                {
+                    tsb.Click += (s, e) =>
+                    {
+                        try
+                        {
+                            var newVal = !tsb.Checked;
+                            tsb.Checked = newVal;
+                            if (_scriptService != null)
+                                _scriptService.UseScanCode = newVal;
+                            if (_defaultSettings != null)
+                                _defaultSettings.UseScanCode = newVal;
+                            AppendLog($"SC モード: {(newVal ? "ON" : "OFF")}");
+                        }
+                        catch { }
+                    };
+                }
+            }
+            catch { }
+
             // 保存：現在の EditMode を記憶（復元用）
             try { _savedEditMode = dgvScenario.EditMode; } catch { }
             // 選択（青）状態でも Back/Delete でクリア、ダブルクリックで編集開始できるようにする
@@ -259,7 +283,8 @@ namespace AutoClickScenarioTool
                     PressDuration = p,
                     HumanizeEnabled = _defaultSettings?.HumanizeEnabled ?? false,
                     HumanizeLower = hLower,
-                    HumanizeUpper = hUpper
+                    HumanizeUpper = hUpper,
+                    UseScanCode = (tsbScanCode != null) ? tsbScanCode.Checked : (_defaultSettings?.UseScanCode ?? false)
                 };
 
                 btnSaveDefaults.Enabled = false;
@@ -907,7 +932,7 @@ namespace AutoClickScenarioTool
             }
         }
 
-        private void DgvScenario_CellValidating(object sender, DataGridViewCellValidatingEventArgs e)
+        private void DgvScenario_CellValidating(object? sender, DataGridViewCellValidatingEventArgs e)
         {
             try
             {
@@ -1305,7 +1330,7 @@ namespace AutoClickScenarioTool
             }
         }
 
-        private void dgvScenario_RowsChanged(object sender, EventArgs e)
+        private void dgvScenario_RowsChanged(object? sender, EventArgs e)
         {
             RefreshNoColumn();
         }
@@ -1384,6 +1409,15 @@ namespace AutoClickScenarioTool
                         txtHumanizeUpper.Text = _defaultSettings.HumanizeUpper.ToString();
                         // update toggle appearance
                         UpdateHumanizeButtonAppearance();
+                        // initialize SC toggle from defaults
+                        try
+                        {
+                            if (tsbScanCode != null)
+                                tsbScanCode.Checked = _defaultSettings.UseScanCode;
+                            if (_scriptService != null)
+                                _scriptService.UseScanCode = _defaultSettings.UseScanCode;
+                        }
+                        catch { }
                         // apply to script service
                         try
                         {

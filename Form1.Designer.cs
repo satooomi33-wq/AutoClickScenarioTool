@@ -34,6 +34,7 @@
         private System.Windows.Forms.ToolStripButton tsbDisable;
         private System.Windows.Forms.ToolStripButton tsbMouse;
         private System.Windows.Forms.ToolStripButton tsbKey;
+        private System.Windows.Forms.ToolStripButton tsbScanCode;
         private System.Windows.Forms.ToolStripLabel tslCaptureStatus;
         private System.Windows.Forms.Label lblDefaultDelay;
         private System.Windows.Forms.TextBox txtDefaultDelay;
@@ -61,6 +62,7 @@
             tsbDisable = new ToolStripButton();
             tsbMouse = new ToolStripButton();
             tsbKey = new ToolStripButton();
+            tsbScanCode = new ToolStripButton();
             tslCaptureStatus = new ToolStripLabel();
             txtDataFolder = new TextBox();
             btnBrowse = new Button();
@@ -118,7 +120,7 @@
             // captureToolStrip
             // 
             captureToolStrip.ImageScalingSize = new Size(28, 28);
-            captureToolStrip.Items.AddRange(new ToolStripItem[] { tsbDisable, tsbMouse, tsbKey, tslCaptureStatus });
+            captureToolStrip.Items.AddRange(new ToolStripItem[] { tsbDisable, tsbMouse, tsbKey, tsbScanCode, tslCaptureStatus });
             captureToolStrip.Location = new Point(0, 0);
             captureToolStrip.Name = "captureToolStrip";
             captureToolStrip.Size = new Size(1227, 40);
@@ -150,6 +152,13 @@
             tsbKey.Size = new Size(89, 34);
             tsbKey.Text = "キー抽出";
             tsbKey.Click += tsbKey_Click;
+            // 
+            // tsbScanCode
+            // 
+            tsbScanCode.CheckOnClick = true;
+            tsbScanCode.Name = "tsbScanCode";
+            tsbScanCode.Size = new Size(80, 34);
+            tsbScanCode.Text = "SC";
             // 
             // tslCaptureStatus
             // 
@@ -204,6 +213,7 @@
             dgvScenario.Size = new Size(1202, 520);
             dgvScenario.TabIndex = 9;
             dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
+            dgvScenario.CellValidating += DgvScenario_CellValidating;
             dgvScenario.RowsAdded += dgvScenario_RowsChanged;
             dgvScenario.RowsRemoved += dgvScenario_RowsChanged;
             dgvScenario.UserAddedRow += dgvScenario_UserAddedRow;
