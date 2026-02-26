@@ -1681,7 +1681,9 @@ namespace AutoClickScenarioTool
                 return;
             }
             // サブ画面／サブウィンドウ対応：アプリの全フォーム領域を取得して判定
-            var pt = new System.Drawing.Point(x, y);
+            // Convert logical cursor point to physical pixels (per-monitor DPI aware) for comparisons
+            var phys = _input_service_real().ConvertToPhysicalPoint(x, y);
+            var pt = phys; // use 'pt' where existing code expects a Point in physical pixels
             // クリック位置のウィンドウハンドルを取得し、所有プロセスが自プロセスなら無視する
             var hWnd = WindowFromPoint(pt);
             if (hWnd == IntPtr.Zero)
@@ -1730,8 +1732,10 @@ namespace AutoClickScenarioTool
                     else
                     {
                         // fallback: use PointToScreen (logical coords) but compare with the raw point conservatively
+                        // PointToScreen returns logical coords; convert to physical for conservative comparison
                         var formScreenPos = f.PointToScreen(System.Drawing.Point.Empty);
-                        var rect = new System.Drawing.Rectangle(formScreenPos, f.Size);
+                        var formPhysTopLeft = _input_service_real().ConvertToPhysicalPoint(formScreenPos.X, formScreenPos.Y);
+                        var rect = new System.Drawing.Rectangle(formPhysTopLeft, f.Size);
                         AppendLog($"Form '{f.Name}' rect={rect} handle=0x{f.Handle.ToInt64():X}");
                         if (rect.Contains(pt))
                         {

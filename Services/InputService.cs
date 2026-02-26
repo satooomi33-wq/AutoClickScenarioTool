@@ -307,6 +307,37 @@ namespace AutoClickScenarioTool.Services
         private const int SM_CXVIRTUALSCREEN = 78;
         private const int SM_CYVIRTUALSCREEN = 79;
 
+        // Convert a logical screen point (e.g. Cursor.Position) to physical pixels
+        // taking per-monitor DPI into account. Returns a Point in physical screen coordinates.
+        public System.Drawing.Point ConvertToPhysicalPoint(int x, int y)
+        {
+            try
+            {
+                int px = x;
+                int py = y;
+                try
+                {
+                    var pt = new System.Drawing.Point(x, y);
+                    IntPtr hMon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+                    if (hMon != IntPtr.Zero)
+                    {
+                        uint dpiX = 96, dpiY = 96;
+                        var r = GetDpiForMonitor(hMon, MDT_EFFECTIVE_DPI, out dpiX, out dpiY);
+                        if (r == 0 && dpiX > 0)
+                        {
+                            double scale = dpiX / 96.0;
+                            px = (int)Math.Round(x * scale);
+                            py = (int)Math.Round(y * scale);
+                        }
+                    }
+                }
+                catch { }
+
+                return new System.Drawing.Point(px, py);
+            }
+            catch { return new System.Drawing.Point(x, y); }
+        }
+
         private void SendMouseClickAbsolute(int x, int y)
         {
             try
