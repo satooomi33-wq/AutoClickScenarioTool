@@ -1550,6 +1550,7 @@ namespace AutoClickScenarioTool
         private bool _captureMode = false;
         private IntPtr _mainHandle;
         private GlobalMouseHook? _mouseHook;
+        private Services.KeyboardMonitor? _kbMonitor;
         // 重複定義削除
         protected override void OnLoad(EventArgs e)
         {
@@ -1558,8 +1559,36 @@ namespace AutoClickScenarioTool
             // _mouseClickFilter の初期化は不要（フィールド未定義のため）
             _mouseHook = new GlobalMouseHook();
             _mouseHook.OnMouseClick += HandleGlobalMouseClick;
+            // start low-level keyboard monitor to inspect scan codes for diagnostics
+            try
+            {
+                _kbMonitor = new Services.KeyboardMonitor();
+                _kbMonitor.OnKey += (vk, scan, flags) =>
+                {
+                    try
+                    {
+                        // Only log when SC toggle is on to reduce noise
+                        if (InvokeRequired)
+                        {
+                            Invoke(new Action(() => { if (tsbScanCode != null && tsbScanCode.Checked) AppendLog($"LLHook vk=0x{vk:X}, scan=0x{scan:X}, flags=0x{flags:X}"); }));
+                        }
+                        else
+                        {
+                            if (tsbScanCode != null && tsbScanCode.Checked) AppendLog($"LLHook vk=0x{vk:X}, scan=0x{scan:X}, flags=0x{flags:X}");
+                        }
+                    }
+                    catch { }
+                };
+                _kbMonitor.Start();
+            }
+            catch { }
             AppendLog($"OnLoad: mouseHook created, hookId TBD");
             LogDisplayInfo();
+        }
+
+        private void Form1_FormClosing(object? sender, FormClosingEventArgs e)
+        {
+            try { _kbMonitor?.Dispose(); } catch { }
         }
 
         private async Task LoadAndApplyDefaultsAsync()
