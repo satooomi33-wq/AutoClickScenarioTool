@@ -52,6 +52,14 @@ namespace AutoClickScenarioTool.Services
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         private static extern short VkKeyScanW(char ch);
 
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromPoint(System.Drawing.Point pt, uint dwFlags);
+        private const uint MONITOR_DEFAULTTONEAREST = 2;
+
+        [DllImport("Shcore.dll")]
+        private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+        private const int MDT_EFFECTIVE_DPI = 0;
+
         // simple map for named keys
         private static readonly Dictionary<string, ushort> NamedVks = new Dictionary<string, ushort>(StringComparer.OrdinalIgnoreCase)
         {
@@ -310,6 +318,30 @@ namespace AutoClickScenarioTool.Services
 
                 if (vwidth <= 0) vwidth = 1;
                 if (vheight <= 0) vheight = 1;
+
+                // Attempt to account for per-monitor DPI scaling: convert logical coordinates to physical if possible.
+                try
+                {
+                    // get monitor for point
+                    var pt = new System.Drawing.Point(x, y);
+                    IntPtr hMon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+                    if (hMon != IntPtr.Zero)
+                    {
+                        try
+                        {
+                            uint dpiX = 96, dpiY = 96;
+                            var r = GetDpiForMonitor(hMon, MDT_EFFECTIVE_DPI, out dpiX, out dpiY);
+                            if (r == 0 && dpiX > 0)
+                            {
+                                double scale = dpiX / 96.0;
+                                x = (int)Math.Round(x * scale);
+                                y = (int)Math.Round(y * scale);
+                            }
+                        }
+                        catch { }
+                    }
+                }
+                catch { }
 
                 // normalize to 0..65535
                 uint normX = (uint)Math.Round((double)(x - vx) * 65535.0 / (vwidth - 1));

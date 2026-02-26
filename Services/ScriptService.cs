@@ -93,6 +93,8 @@ namespace AutoClickScenarioTool.Services
                                 var yy = (int)Math.Round(dy);
                                 var pl = new PositionList();
                                 pl.Points.Add(new Point(xx, yy));
+                                // log coordinate being clicked
+                                OnLog?.Invoke($"座標実行: {xx},{yy}");
                                 _input.ClickMultiple(pl);
                                 // small pause between actions — allow target window to become foreground
                                 await Task.Delay(120, token).ConfigureAwait(false);

@@ -136,28 +136,42 @@ namespace AutoClickScenarioTool
             // ScanCode トグルの初期ハンドラ（Designer 上に tsbScanCode を配置してください）
             try
             {
-                // ToolStrip buttons are not in the Form.Controls collection; search the ToolStrip items instead.
-                var tsb = captureToolStrip?.Items.OfType<ToolStripButton>().FirstOrDefault(x => string.Equals(x.Name, "tsbScanCode", StringComparison.Ordinal));
-                if (tsb != null)
+                // Prefer designer field, but also attach to ToolStrip items if present
+                if (tsbScanCode != null)
                 {
-                    tsb.Click += (s, e) =>
-                    {
-                        try
-                        {
-                            var newVal = !tsb.Checked;
-                            tsb.Checked = newVal;
-                            if (_scriptService != null)
-                                _scriptService.UseScanCode = newVal;
-                            if (_defaultSettings != null)
-                                _defaultSettings.UseScanCode = newVal;
-                            AppendLog($"SC モード: {(newVal ? "ON" : "OFF")}");
-                        }
-                        catch { }
-                    };
+                    tsbScanCode.Click -= TsbScanCode_ClickInternal;
+                    tsbScanCode.Click += TsbScanCode_ClickInternal;
                 }
-
+                else
+                {
+                    // fallback: find by name in captureToolStrip items
+                    var tsb = captureToolStrip?.Items.OfType<ToolStripButton>().FirstOrDefault(x => string.Equals(x.Name, "tsbScanCode", StringComparison.OrdinalIgnoreCase));
+                    if (tsb != null)
+                    {
+                        tsb.Click -= TsbScanCode_ClickInternal;
+                        tsb.Click += TsbScanCode_ClickInternal;
+                        // keep designer field in sync if available later
+                        try { tsbScanCode = tsb; } catch { }
+                    }
+                }
             }
             catch { }
+
+            // local handler method to keep code compact
+            void TsbScanCode_ClickInternal(object? s, EventArgs e)
+            {
+                try
+                {
+                    if (tsbScanCode == null) return;
+                    var isChecked = tsbScanCode.Checked; // CheckOnClick toggles Checked before Click
+                    if (_scriptService != null)
+                        _scriptService.UseScanCode = isChecked;
+                    if (_defaultSettings != null)
+                        _defaultSettings.UseScanCode = isChecked;
+                    AppendLog($"SC モード: {(isChecked ? "ON" : "OFF")}");
+                }
+                catch { }
+            }
 
             // 保存：現在の EditMode を記憶（復元用）
             try { _savedEditMode = dgvScenario.EditMode; } catch { }
@@ -528,6 +542,13 @@ namespace AutoClickScenarioTool
             _scriptService.OnStopped += () => Invoke(new Action(ScriptStopped));
             // Ensure Invoke is called with the parameter so delegate parameter counts match
             _scriptService.OnPaused += (idx) => Invoke(new Action<int>(HandlePaused), idx);
+            // apply default scan-code setting if present
+            try
+            {
+                if (_defaultSettings != null && _scriptService != null)
+                    _scriptService.UseScanCode = _defaultSettings.UseScanCode;
+            }
+            catch { }
         }
 
         // wrappers to avoid tiny naming collisions
@@ -1087,14 +1108,27 @@ namespace AutoClickScenarioTool
             try
             {
                 var folder = txtDataFolder.Text;
+                var prevRaw = cmbFiles?.Text ?? string.Empty;
+                var prev = string.IsNullOrWhiteSpace(prevRaw) ? string.Empty : Path.GetFileNameWithoutExtension(prevRaw);
                 cmbFiles.Items.Clear();
-                cmbFiles.Text = ""; // 初期値ブランク
                 if (Directory.Exists(folder))
                 {
-                    foreach (var f in _dataService.ListJsonFiles(folder))
+                    foreach (var f in _data_service_list_files_safe(folder))
                     {
                         var name = Path.GetFileNameWithoutExtension(f);
                         cmbFiles.Items.Add(name);
+                    }
+                }
+                // restore previous selection if possible
+                if (!string.IsNullOrWhiteSpace(prev))
+                {
+                    for (int i = 0; i < cmbFiles.Items.Count; i++)
+                    {
+                        if (string.Equals(cmbFiles.Items[i]?.ToString(), prev, StringComparison.OrdinalIgnoreCase))
+                        {
+                            cmbFiles.SelectedIndex = i;
+                            break;
+                        }
                     }
                 }
             }
@@ -1102,6 +1136,16 @@ namespace AutoClickScenarioTool
             {
                 AppendLog("Error listing files: " + ex.Message);
             }
+        }
+
+        // wrapper to safely enumerate files from DataService (keeps null semantics)
+        private IEnumerable<string> _data_service_list_files_safe(string folder)
+        {
+            try
+            {
+                return _dataService.ListJsonFiles(folder) ?? Enumerable.Empty<string>();
+            }
+            catch { return Enumerable.Empty<string>(); }
         }
 
         private void btnBrowse_Click(object sender, EventArgs e)
@@ -1157,6 +1201,43 @@ namespace AutoClickScenarioTool
 
         private Task<List<ScenarioStep>> _data_service_load(string path) => _dataService.LoadAsync(path);
 
+        // Save helper that performs file IO off the UI thread and marshals UI updates back to UI thread
+        private async Task _data_service_save_ui(string path, List<ScenarioStep> steps)
+        {
+            // perform save on background thread
+            await Task.Run(async () =>
+            {
+                await _dataService.SaveAsync(path, steps).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+
+            // update UI on UI thread
+            try
+            {
+                // update UI on UI thread and select saved file
+                var fileBase = Path.GetFileNameWithoutExtension(path);
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(() =>
+                    {
+                        AppendLog("保存: " + path);
+                        RefreshFileList();
+                        try { cmbFiles.Text = fileBase; } catch { }
+                    }));
+                }
+                else
+                {
+                    AppendLog("保存: " + path);
+                    RefreshFileList();
+                    try { cmbFiles.Text = fileBase; } catch { }
+                }
+            }
+            catch
+            {
+                // best-effort: if UI update fails, log to textbox if possible
+                try { AppendLog("保存完了(但しUI更新に失敗): " + path); } catch { }
+            }
+        }
+
         private async void btnSave_Click(object sender, EventArgs e)
         {
             var folder = txtDataFolder.Text;
@@ -1191,9 +1272,7 @@ namespace AutoClickScenarioTool
             }
             try
             {
-                await _dataService.SaveAsync(path, steps).ConfigureAwait(false);
-                AppendLog("保存: " + path);
-                RefreshFileList();
+                await _data_service_save_ui(path, steps).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -1212,7 +1291,43 @@ namespace AutoClickScenarioTool
                 cells[2] = s.PressDuration;
                 for (int i = 0; i < 10; i++)
                 {
-                    cells[3 + i] = i < s.Positions.Count ? s.Positions[i] : string.Empty;
+                    string outv = string.Empty;
+                    if (i < s.Positions.Count)
+                    {
+                        var raw = s.Positions[i] ?? string.Empty;
+                        // If raw is numeric-only with decimal or negative, treat as X and convert to "X,0"
+                        var numericOnly = System.Text.RegularExpressions.Regex.Match(raw, "^\\s*-?\\d+(?:\\.\\d+)?\\s*$");
+                        if (numericOnly.Success && (raw.Contains('.') || raw.TrimStart().StartsWith("-")))
+                        {
+                            if (double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var dv))
+                            {
+                                outv = $"{(int)Math.Round(dv)},0";
+                            }
+                        }
+                        else
+                        {
+                            // If it looks like a coordinate, normalize by rounding components
+                            if (raw.Contains(','))
+                            {
+                                var parts = raw.Split(',');
+                                if (parts.Length >= 2
+                                    && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var px)
+                                    && double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var py))
+                                {
+                                    outv = $"{(int)Math.Round(px)},{(int)Math.Round(py)}";
+                                }
+                                else
+                                {
+                                    outv = raw;
+                                }
+                            }
+                            else
+                            {
+                                outv = raw;
+                            }
+                        }
+                    }
+                    cells[3 + i] = outv;
                 }
                 dgvScenario.Rows.Add(cells);
             }
@@ -1243,6 +1358,17 @@ namespace AutoClickScenarioTool
                 {
                     var raw = row.Cells[3 + i].Value?.ToString();
                     if (string.IsNullOrWhiteSpace(raw)) continue;
+                    // If user entered a single numeric with decimal or negative, treat as X and convert to X,0
+                    var numericOnly = System.Text.RegularExpressions.Regex.Match(raw, "^\\s*-?\\d+(?:\\.\\d+)?\\s*$");
+                    if (numericOnly.Success && (raw.Contains('.') || raw.TrimStart().StartsWith("-")))
+                    {
+                        if (double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var dv))
+                        {
+                            step.Positions.Add($"{(int)Math.Round(dv)},0");
+                            continue;
+                        }
+                    }
+
                     var (ok, normalized, error) = AutoClickScenarioTool.Services.KeySpecHelper.ValidateAndNormalize(raw);
                     if (ok && !string.IsNullOrWhiteSpace(normalized))
                     {
@@ -1637,16 +1763,46 @@ namespace AutoClickScenarioTool
             if (dgvScenario.IsCurrentCellInEditMode)
                 dgvScenario.EndEdit();
             var raw = $"{x},{y}";
-            var (ok, normalized, err) = AutoClickScenarioTool.Services.KeySpecHelper.ValidateAndNormalize(raw);
-            if (ok && !string.IsNullOrWhiteSpace(normalized))
+            // Try direct parse first (bypass KeySpecHelper) to avoid single-value normalization issues
+            bool parsedDirect = false;
+            try
             {
-                dgvScenario.Rows[rowIndex].Cells[targetCol].Value = normalized;
-                RefreshNoColumn();
-                AppendLog($"座標取得: {normalized}");
+                var parts = raw.Split(',');
+                if (parts.Length >= 2
+                    && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var dx)
+                    && double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var dy))
+                {
+                    var xi = (int)Math.Round(dx);
+                    var yi = (int)Math.Round(dy);
+                    var normalized = $"{xi},{yi}";
+                    dgvScenario.Rows[rowIndex].Cells[targetCol].Value = normalized;
+                    RefreshNoColumn();
+                    AppendLog($"座標取得: {normalized}");
+                    parsedDirect = true;
+                }
             }
-            else
+            catch { }
+
+            if (!parsedDirect)
             {
-                AppendLog($"座標取得失敗(無効形式): {raw} -> {err}");
+                var (ok, normalized, err) = AutoClickScenarioTool.Services.KeySpecHelper.ValidateAndNormalize(raw);
+                if (ok && !string.IsNullOrWhiteSpace(normalized))
+                {
+                    if (!normalized.Contains(","))
+                    {
+                        AppendLog($"座標取得失敗(単一値検出): {raw} -> normalized='{normalized}'");
+                    }
+                    else
+                    {
+                        dgvScenario.Rows[rowIndex].Cells[targetCol].Value = normalized;
+                        RefreshNoColumn();
+                        AppendLog($"座標取得: {normalized}");
+                    }
+                }
+                else
+                {
+                    AppendLog($"座標取得失敗(無効形式): {raw} -> {err}");
+                }
             }
             if (rowIndex == dgvScenario.Rows.Count - 2 && dgvScenario.AllowUserToAddRows)
             {
@@ -1849,16 +2005,45 @@ namespace AutoClickScenarioTool
             if (_form.dgvScenario.IsCurrentCellInEditMode)
                 _form.dgvScenario.EndEdit();
             var raw = $"{cursorPos.X},{cursorPos.Y}";
-            var (ok, normalized, err) = AutoClickScenarioTool.Services.KeySpecHelper.ValidateAndNormalize(raw);
-            if (ok && !string.IsNullOrWhiteSpace(normalized))
+            bool parsedDirect = false;
+            try
             {
-                _form.dgvScenario.Rows[rowIndex].Cells[targetCol].Value = normalized;
-                _form.RefreshNoColumn();
-                _form.AppendLog($"座標取得: {normalized}");
+                var parts = raw.Split(',');
+                if (parts.Length >= 2
+                    && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var dx)
+                    && double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var dy))
+                {
+                    var xi = (int)Math.Round(dx);
+                    var yi = (int)Math.Round(dy);
+                    var normalized = $"{xi},{yi}";
+                    _form.dgvScenario.Rows[rowIndex].Cells[targetCol].Value = normalized;
+                    _form.RefreshNoColumn();
+                    _form.AppendLog($"座標取得: {normalized}");
+                    parsedDirect = true;
+                }
             }
-            else
+            catch { }
+
+            if (!parsedDirect)
             {
-                _form.AppendLog($"座標取得失敗(無効形式): {raw} -> {err}");
+                var (ok, normalized, err) = AutoClickScenarioTool.Services.KeySpecHelper.ValidateAndNormalize(raw);
+                if (ok && !string.IsNullOrWhiteSpace(normalized))
+                {
+                    if (!normalized.Contains(","))
+                    {
+                        _form.AppendLog($"座標取得失敗(単一値検出): {raw} -> normalized='{normalized}'");
+                    }
+                    else
+                    {
+                        _form.dgvScenario.Rows[rowIndex].Cells[targetCol].Value = normalized;
+                        _form.RefreshNoColumn();
+                        _form.AppendLog($"座標取得: {normalized}");
+                    }
+                }
+                else
+                {
+                    _form.AppendLog($"座標取得失敗(無効形式): {raw} -> {err}");
+                }
             }
             if (rowIndex == _form.dgvScenario.Rows.Count - 2 && _form.dgvScenario.AllowUserToAddRows)
             {
