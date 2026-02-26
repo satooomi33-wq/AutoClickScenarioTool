@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Drawing;
 using AutoClickScenarioTool.Models;
+using System.Windows.Forms;
 
 namespace AutoClickScenarioTool.Services
 {
@@ -182,7 +183,21 @@ namespace AutoClickScenarioTool.Services
                 inputs[0].U.ki.dwFlags |= KEYEVENTF_KEYUP;
             }
 
-            SendInput(1, inputs, INPUT.Size);
+            try
+            {
+                var res = SendInput(1, inputs, INPUT.Size);
+                if (res == 0)
+                {
+                    // fallback: use SendKeys for key down events
+                    if (!keyUp)
+                    {
+                        var s = MapVkToSendKeys(vk);
+                        try { if (!string.IsNullOrEmpty(s)) SendKeys.SendWait(s); }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
         }
 
         private void SendUnicodeChar(char ch)
@@ -208,9 +223,41 @@ namespace AutoClickScenarioTool.Services
                     time = 0,
                     dwExtraInfo = IntPtr.Zero
                 };
-                SendInput(2, inputs, INPUT.Size);
+                var res = SendInput(2, inputs, INPUT.Size);
+                if (res == 0)
+                {
+                    try { SendKeys.SendWait(ch.ToString()); } catch { }
+                }
             }
             catch { }
+        }
+
+        private string MapVkToSendKeys(ushort vk)
+        {
+            // letters and digits
+            if (vk >= 0x30 && vk <= 0x39) // '0'..'9'
+                return ((char)vk).ToString();
+            if (vk >= 0x41 && vk <= 0x5A) // 'A'..'Z'
+                return ((char)vk).ToString();
+
+            // named keys map
+            return vk switch
+            {
+                0x0D => "{ENTER}",
+                0x09 => "{TAB}",
+                0x1B => "{ESC}",
+                0x08 => "{BACKSPACE}",
+                0x20 => " ",
+                0x26 => "{UP}",
+                0x28 => "{DOWN}",
+                0x25 => "{LEFT}",
+                0x27 => "{RIGHT}",
+                0x24 => "{HOME}",
+                0x23 => "{END}",
+                0x2D => "{INSERT}",
+                0x2E => "{DELETE}",
+                _ => string.Empty,
+            };
         }
 
         // Send mouse clicks using SendInput with absolute coordinates to handle DPI / multi-monitor correctly
