@@ -7,7 +7,7 @@ namespace AutoClickScenarioTool.Models
         public int Delay { get; set; } = 500;
         public int PressDuration { get; set; } = 100;
         // 擬人化（ヒューマナイズ）設定
-        public bool HumanizeEnabled { get; set; } = false;
+        public bool HumanizeEnabled { get; set; } = true;
         public int HumanizeLower { get; set; } = 30;
         public int HumanizeUpper { get; set; } = 100;
 

@@ -49,7 +49,10 @@ namespace AutoClickScenarioTool.Services
             try
             {
                 var data = JsonSerializer.Deserialize<AutoClickScenarioTool.Models.DefaultSettings>(text, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                return data ?? new AutoClickScenarioTool.Models.DefaultSettings();
+                // Do not honor persisted HumanizeEnabled value; always use in-code default for initial state
+                var result = data ?? new AutoClickScenarioTool.Models.DefaultSettings();
+                try { result.HumanizeEnabled = new AutoClickScenarioTool.Models.DefaultSettings().HumanizeEnabled; } catch { }
+                return result;
             }
             catch
             {
@@ -62,7 +65,16 @@ namespace AutoClickScenarioTool.Services
             var dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
-            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+            // Do not persist the HumanizeEnabled toggle to defaults file by design
+            var toSave = new
+            {
+                Delay = settings.Delay,
+                PressDuration = settings.PressDuration,
+                HumanizeLower = settings.HumanizeLower,
+                HumanizeUpper = settings.HumanizeUpper,
+                UseScanCode = settings.UseScanCode
+            };
+            var json = JsonSerializer.Serialize(toSave, new JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(path, json).ConfigureAwait(false);
         }
     }

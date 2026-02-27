@@ -250,7 +250,7 @@
             txtDefaultDelay.Name = "txtDefaultDelay";
             txtDefaultDelay.Size = new Size(66, 35);
             txtDefaultDelay.TabIndex = 11;
-            txtDefaultDelay.Text = "500";
+            txtDefaultDelay.Text = "0";
             // 
             // lblDefaultPressDuration
             // 
@@ -267,7 +267,7 @@
             txtDefaultPressDuration.Name = "txtDefaultPressDuration";
             txtDefaultPressDuration.Size = new Size(66, 35);
             txtDefaultPressDuration.TabIndex = 12;
-            txtDefaultPressDuration.Text = "100";
+            txtDefaultPressDuration.Text = "0";
             // 
             // btnSaveDefaults
             // 

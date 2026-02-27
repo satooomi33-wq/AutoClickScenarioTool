@@ -1973,7 +1973,13 @@ namespace AutoClickScenarioTool
         {
             try
             {
-                _defaultSettings.HumanizeEnabled = !_defaultSettings.HumanizeEnabled;
+                if (_defaultSettings == null) _defaultSettings = new Models.DefaultSettings();
+                bool currently = _defaultSettings.HumanizeEnabled;
+                var msg = currently ? "擬人化を無効にしますか?" : "擬人化を有効にしますか?";
+                var dr = MessageBox.Show(msg, "確認", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (dr != DialogResult.Yes) return;
+
+                _defaultSettings.HumanizeEnabled = !currently;
                 // reflect immediately in runtime service
                 try
                 {
