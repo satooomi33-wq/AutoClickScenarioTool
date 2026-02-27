@@ -3,14 +3,6 @@
     "Delay": 500,
     "PressDuration": 50,
     "Positions": [
-      "-404,440"
-    ],
-    "Actions": []
-  },
-  {
-    "Delay": 500,
-    "PressDuration": 50,
-    "Positions": [
       "M"
     ],
     "Actions": []

@@ -26,6 +26,57 @@ namespace AutoClickScenarioTool.Services
             public static int Size => Marshal.SizeOf<INPUT>();
         }
 
+        // Resolve keySpec into modifier list and virtual key or unicode indicator
+        private (List<ushort> modList, ushort vk, bool isUnicode) ResolveKeySpec(string keySpec)
+        {
+            var parts = keySpec.Split('+').Select(p => p.Trim()).ToArray();
+            var modList = new List<ushort>();
+            for (int i = 0; i < parts.Length - 1; i++)
+            {
+                var m = parts[i];
+                if (string.Equals(m, "Ctrl", StringComparison.OrdinalIgnoreCase)) modList.Add(0x11); // VK_CONTROL
+                else if (string.Equals(m, "Alt", StringComparison.OrdinalIgnoreCase)) modList.Add(0x12); // VK_MENU
+                else if (string.Equals(m, "Shift", StringComparison.OrdinalIgnoreCase)) modList.Add(0x10); // VK_SHIFT
+            }
+            var main = parts.Last();
+            ushort vk = 0;
+            bool isUnicode = false;
+            // single char letter/digit/punct
+            if (main.Length == 1 && modList.Count == 0)
+            {
+                // prefer Unicode path for single printable char
+                isUnicode = true;
+            }
+            else
+            {
+                short vkAndShift = -1;
+                if (main.Length == 1) vkAndShift = VkKeyScanW(main[0]);
+                bool vkObtained = false;
+                if (vkAndShift != -1)
+                {
+                    vk = (ushort)(vkAndShift & 0xFF);
+                    vkObtained = true;
+                }
+                if (!vkObtained)
+                {
+                    if (NamedVks.TryGetValue(main, out var namedVk))
+                    {
+                        vk = namedVk; vkObtained = true;
+                    }
+                    else if (main.StartsWith("F", StringComparison.OrdinalIgnoreCase) && int.TryParse(main.Substring(1), out int fn) && fn >= 1 && fn <= 24)
+                    {
+                        vk = (ushort)(0x70 + (fn - 1)); vkObtained = true;
+                    }
+                    else if (int.TryParse(main, out int num))
+                    {
+                        vk = (ushort)('0' + (num % 10)); vkObtained = true;
+                    }
+                }
+                if (!vkObtained) vk = (ushort)(main.Length > 0 ? (ushort)main[0] : 0);
+            }
+            return (modList, vk, isUnicode);
+        }
+
         [StructLayout(LayoutKind.Explicit)]
         private struct INPUTUNION
         {
@@ -81,6 +132,41 @@ namespace AutoClickScenarioTool.Services
             InternalSend(keySpec, useScanCode: true);
         }
 
+        // Send key with hold duration (ms). If unable to perform a true hold (e.g. Unicode path), falls back to immediate send.
+        public void SendByKeyNameWithDuration(string keySpec, int duration, bool useScanCode = false)
+        {
+            if (string.IsNullOrWhiteSpace(keySpec)) return;
+            try
+            {
+                var info = ResolveKeySpec(keySpec);
+                // If unicode character path, fall back to immediate send (can't easily hold Unicode via SendInput here)
+                if (info.isUnicode)
+                {
+                    InternalSend(keySpec, useScanCode);
+                    return;
+                }
+
+                // Press modifiers and main down
+                foreach (var m in info.modList)
+                {
+                    SendKey(m, useScanCode, false);
+                    Thread.Sleep(3);
+                }
+                // main down
+                SendKey(info.vk, useScanCode, false);
+                Thread.Sleep(Math.Max(0, duration));
+                // main up
+                SendKey(info.vk, useScanCode, true);
+                // release modifiers in reverse
+                for (int i = info.modList.Count - 1; i >= 0; i--)
+                {
+                    SendKey(info.modList[i], useScanCode, true);
+                    Thread.Sleep(3);
+                }
+            }
+            catch { }
+        }
+
         private void InternalSend(string keySpec, bool useScanCode)
         {
             if (string.IsNullOrWhiteSpace(keySpec)) return;
@@ -95,6 +181,8 @@ namespace AutoClickScenarioTool.Services
                     else if (string.Equals(m, "Alt", StringComparison.OrdinalIgnoreCase)) modList.Add(0x12); // VK_MENU
                     else if (string.Equals(m, "Shift", StringComparison.OrdinalIgnoreCase)) modList.Add(0x10); // VK_SHIFT
                 }
+
+        
                 var main = parts.Last();
 
                 ushort vk = 0;
@@ -269,14 +357,14 @@ namespace AutoClickScenarioTool.Services
         }
 
         // Send mouse clicks using SendInput with absolute coordinates to handle DPI / multi-monitor correctly
-        public void ClickMultiple(PositionList list)
+        public void ClickMultiple(PositionList list, int pressDuration = 12)
         {
             if (list == null) return;
             try
             {
                 foreach (var p in list.Points)
                 {
-                    SendMouseClickAbsolute(p.X, p.Y);
+                    SendMouseClickAbsolute(p.X, p.Y, pressDuration);
                     Thread.Sleep(120); // keep small pause between actions
                 }
             }
@@ -338,7 +426,7 @@ namespace AutoClickScenarioTool.Services
             catch { return new System.Drawing.Point(x, y); }
         }
 
-        private void SendMouseClickAbsolute(int x, int y)
+        private void SendMouseClickAbsolute(int x, int y, int pressDuration)
         {
             try
             {
@@ -419,7 +507,7 @@ namespace AutoClickScenarioTool.Services
                     // Use SetCursorPos + mouse_event which works on most systems.
                     SetCursorPos(x, y);
                     mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
-                    Thread.Sleep(12);
+                    try { Thread.Sleep(Math.Max(1, pressDuration)); } catch { }
                     mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
                 }
                 finally

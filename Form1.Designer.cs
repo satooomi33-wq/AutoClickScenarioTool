@@ -322,9 +322,9 @@
             cmbFocusApp.FormattingEnabled = true;
             cmbFocusApp.Location = new Point(424, 137);
             cmbFocusApp.Name = "cmbFocusApp";
-            cmbFocusApp.Size = new Size(260, 37);
+            cmbFocusApp.Size = new Size(427, 38);
             cmbFocusApp.TabIndex = 18;
-            cmbFocusApp.DropDown += new EventHandler(this.cmbFocusApp_DropDown);
+            cmbFocusApp.DropDown += cmbFocusApp_DropDown;
             // 
             // Form1
             // 

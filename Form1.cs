@@ -198,14 +198,15 @@ namespace AutoClickScenarioTool
                 const uint ASFW_ANY = 0xFFFFFFFF;
                 var fg = GetForegroundWindow();
                 uint fgThread = GetWindowThreadProcessId(fg, out uint fgPid);
-                uint curThread = GetCurrentThreadId();
+                uint targetThread = GetWindowThreadProcessId(hWnd, out uint targetPid);
 
                 for (int attempt = 0; attempt < 5; attempt++)
                 {
                     bool attached = false;
                     try
                     {
-                        attached = AttachThreadInput(curThread, fgThread, true);
+                        // Attach the foreground thread and target thread so SetForegroundWindow has permission
+                        attached = AttachThreadInput(fgThread, targetThread, true);
                     }
                     catch { attached = false; }
 
@@ -224,7 +225,7 @@ namespace AutoClickScenarioTool
 
                     if (attached)
                     {
-                        try { AttachThreadInput(curThread, fgThread, false); } catch { }
+                        try { AttachThreadInput(fgThread, targetThread, false); } catch { }
                     }
 
                     var nowFg = GetForegroundWindow();
@@ -1745,6 +1746,7 @@ namespace AutoClickScenarioTool
         {
             try
             {
+                var prevDefaults = _defaultSettings ?? new Models.DefaultSettings();
                 var d = await _dataService.LoadDefaultsAsync().ConfigureAwait(false);
                 _defaultSettings = d ?? new Models.DefaultSettings();
                 try
@@ -1775,6 +1777,41 @@ namespace AutoClickScenarioTool
                                 _scriptService.HumanizeEnabled = _defaultSettings.HumanizeEnabled;
                                 _scriptService.HumanizeLower = _defaultSettings.HumanizeLower;
                                 _scriptService.HumanizeUpper = _defaultSettings.HumanizeUpper;
+                            }
+                        }
+                        catch { }
+                        // Apply defaults to any existing non-new rows.
+                        // Replace if cell is empty OR still has the previous in-memory default value (designer-initialized)
+                        try
+                        {
+                            if (dgvScenario != null)
+                            {
+                                var prevDelayStr = prevDefaults.Delay.ToString();
+                                var prevPressStr = prevDefaults.PressDuration.ToString();
+                                foreach (DataGridViewRow r in dgvScenario.Rows)
+                                {
+                                    if (r.IsNewRow) continue;
+                                    try
+                                    {
+                                        if (r.Cells.Count > 1)
+                                        {
+                                            var dcell = r.Cells[1].Value?.ToString() ?? string.Empty;
+                                            if (string.IsNullOrWhiteSpace(dcell) || dcell == prevDelayStr)
+                                                r.Cells[1].Value = _defaultSettings.Delay;
+                                        }
+                                    }
+                                    catch { }
+                                    try
+                                    {
+                                        if (r.Cells.Count > 2)
+                                        {
+                                            var pcell = r.Cells[2].Value?.ToString() ?? string.Empty;
+                                            if (string.IsNullOrWhiteSpace(pcell) || pcell == prevPressStr)
+                                                r.Cells[2].Value = _defaultSettings.PressDuration;
+                                        }
+                                    }
+                                    catch { }
+                                }
                             }
                         }
                         catch { }
