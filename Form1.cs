@@ -14,6 +14,8 @@ namespace AutoClickScenarioTool
 {
     public partial class Form1 : Form
     {
+        // ComboBox for selecting focus target app before playback (declared in Designer)
+        private const string NoFocusLabel = "アプリフォーカス無";
         private enum CaptureModeState { Disabled, Mouse, Key }
         private CaptureModeState _captureModeState = CaptureModeState.Disabled;
         // Designer-managed ToolStrip controls are used instead of runtime-created ones.
@@ -112,6 +114,128 @@ namespace AutoClickScenarioTool
             public int Bottom;
         }
 
+        // Populate the focus-app combo with currently visible top-level windows
+        private void PopulateFocusAppList()
+        {
+            try
+            {
+                if (cmbFocusApp == null) return;
+                var prev = cmbFocusApp.SelectedItem?.ToString() ?? string.Empty;
+                cmbFocusApp.Items.Clear();
+                cmbFocusApp.Items.Add(NoFocusLabel);
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var p in Process.GetProcesses())
+                {
+                    try
+                    {
+                        if (p.Id == Process.GetCurrentProcess().Id) continue;
+                        var h = p.MainWindowHandle;
+                        var title = p.MainWindowTitle ?? string.Empty;
+                        if (h == IntPtr.Zero) continue;
+                        if (string.IsNullOrWhiteSpace(title)) continue;
+                        var display = $"{p.ProcessName} — {title}";
+                        if (seen.Add(display)) cmbFocusApp.Items.Add(display);
+                    }
+                    catch { }
+                }
+                // restore previous selection if still present
+                if (!string.IsNullOrWhiteSpace(prev))
+                {
+                    for (int i = 0; i < cmbFocusApp.Items.Count; i++)
+                    {
+                        if (string.Equals(cmbFocusApp.Items[i]?.ToString(), prev, StringComparison.OrdinalIgnoreCase))
+                        {
+                            cmbFocusApp.SelectedIndex = i;
+                            return;
+                        }
+                    }
+                }
+                cmbFocusApp.SelectedIndex = 0;
+            }
+            catch { }
+        }
+
+        // Try to focus the application represented by the selected display string
+        private bool TryFocusSelectedApp(string display)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(display) || display == NoFocusLabel) return true;
+                foreach (var p in Process.GetProcesses())
+                {
+                    try
+                    {
+                        var title = p.MainWindowTitle ?? string.Empty;
+                        if (p.Id == Process.GetCurrentProcess().Id) continue;
+                        if (p.MainWindowHandle == IntPtr.Zero) continue;
+                        var d = $"{p.ProcessName} — {title}";
+                        if (string.Equals(d, display, StringComparison.OrdinalIgnoreCase))
+                        {
+                            var hwnd = p.MainWindowHandle;
+                            if (hwnd == IntPtr.Zero) return false;
+                            return TryBringWindowToFront(hwnd);
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        // Designer DropDown event wrapper
+        private void cmbFocusApp_DropDown(object? sender, EventArgs e)
+        {
+            try { PopulateFocusAppList(); } catch { }
+        }
+
+        // Attempt to bring a window to the foreground. Returns true on success.
+        private bool TryBringWindowToFront(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero) return false;
+            try
+            {
+                const uint ASFW_ANY = 0xFFFFFFFF;
+                var fg = GetForegroundWindow();
+                uint fgThread = GetWindowThreadProcessId(fg, out uint fgPid);
+                uint curThread = GetCurrentThreadId();
+
+                for (int attempt = 0; attempt < 5; attempt++)
+                {
+                    bool attached = false;
+                    try
+                    {
+                        attached = AttachThreadInput(curThread, fgThread, true);
+                    }
+                    catch { attached = false; }
+
+                    try { ShowWindowAsync(hWnd, SW_SHOWNORMAL); } catch { }
+                    try { SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE); } catch { }
+                    try { SetForegroundWindow(hWnd); } catch { }
+                    try { SetActiveWindow(hWnd); } catch { }
+
+                    try
+                    {
+                        // simulate ALT press/release to help focus rules
+                        keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+                        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                    }
+                    catch { }
+
+                    if (attached)
+                    {
+                        try { AttachThreadInput(curThread, fgThread, false); } catch { }
+                    }
+
+                    var nowFg = GetForegroundWindow();
+                    if (nowFg == hWnd) return true;
+                    try { Thread.Sleep(80); } catch { }
+                }
+            }
+            catch { }
+            return false;
+        }
+
         [DllImport("user32.dll", SetLastError = true)]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
@@ -128,6 +252,8 @@ namespace AutoClickScenarioTool
         public Form1()
         {
             InitializeComponent();
+            // initialize focus-app list from Designer control
+            try { PopulateFocusAppList(); } catch { }
 
             _script_service_init();
 
@@ -1399,6 +1525,30 @@ namespace AutoClickScenarioTool
                 int startIndex = 0;
                 if (dgvScenario.CurrentCell != null)
                     startIndex = dgvScenario.CurrentCell.RowIndex;
+                // Before starting, attempt to focus selected external app if user chose one
+                try
+                {
+                    var sel = cmbFocusApp?.SelectedItem?.ToString() ?? NoFocusLabel;
+                    if (!string.IsNullOrWhiteSpace(sel) && sel != NoFocusLabel)
+                    {
+                        AppendLog($"フォーカス移動先: {sel}");
+                        var ok = TryFocusSelectedApp(sel);
+                        if (!ok)
+                        {
+                            AppendLog("選択したアプリへのフォーカスに失敗したため、再生を中止します");
+                            try { MessageBox.Show("選択したアプリにフォーカスを当てられません。再生を中止します。", "エラー", MessageBoxButtons.OK, MessageBoxIcon.Error); } catch { }
+                            return;
+                        }
+                        AppendLog("フォーカス移動成功");
+                        // small pause to allow OS focus changes
+                        try { Thread.Sleep(80); } catch { }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("Focus attempt failed: " + ex.Message);
+                    return;
+                }
 
                 AppendLog($"実行開始: 行{startIndex + 1} から");
                 _isPaused = false;

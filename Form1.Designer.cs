@@ -29,6 +29,7 @@
         private System.Windows.Forms.Button btnStart;
         private System.Windows.Forms.Button btnPause;
         private System.Windows.Forms.Button btnStop;
+        private System.Windows.Forms.ComboBox cmbFocusApp;
         
         private System.Windows.Forms.ToolStrip captureToolStrip;
         private System.Windows.Forms.ToolStripButton tsbDisable;
@@ -80,6 +81,7 @@
             lblHumanizeSeparator = new Label();
             txtHumanizeUpper = new TextBox();
             btnToggleHumanize = new Button();
+            cmbFocusApp = new ComboBox();
             captureToolStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvScenario).BeginInit();
             SuspendLayout();
@@ -157,7 +159,7 @@
             // 
             tsbScanCode.CheckOnClick = true;
             tsbScanCode.Name = "tsbScanCode";
-            tsbScanCode.Size = new Size(80, 34);
+            tsbScanCode.Size = new Size(41, 34);
             tsbScanCode.Text = "SC";
             // 
             // tslCaptureStatus
@@ -212,8 +214,8 @@
             dgvScenario.RowTemplate.Height = 25;
             dgvScenario.Size = new Size(1202, 520);
             dgvScenario.TabIndex = 9;
-            dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
             dgvScenario.CellValidating += DgvScenario_CellValidating;
+            dgvScenario.CellValueChanged += dgvScenario_CellValueChanged;
             dgvScenario.RowsAdded += dgvScenario_RowsChanged;
             dgvScenario.RowsRemoved += dgvScenario_RowsChanged;
             dgvScenario.UserAddedRow += dgvScenario_UserAddedRow;
@@ -307,13 +309,22 @@
             // 
             // btnToggleHumanize
             // 
-            btnToggleHumanize.Location = new Point(257, 137);
+            btnToggleHumanize.Location = new Point(270, 137);
             btnToggleHumanize.Name = "btnToggleHumanize";
             btnToggleHumanize.Size = new Size(146, 37);
             btnToggleHumanize.TabIndex = 3;
             btnToggleHumanize.Text = "擬人化切替";
             btnToggleHumanize.UseVisualStyleBackColor = true;
             btnToggleHumanize.Click += btnToggleHumanize_Click;
+            // 
+            // cmbFocusApp
+            // 
+            cmbFocusApp.FormattingEnabled = true;
+            cmbFocusApp.Location = new Point(424, 137);
+            cmbFocusApp.Name = "cmbFocusApp";
+            cmbFocusApp.Size = new Size(260, 37);
+            cmbFocusApp.TabIndex = 18;
+            cmbFocusApp.DropDown += new EventHandler(this.cmbFocusApp_DropDown);
             // 
             // Form1
             // 
@@ -337,6 +348,7 @@
             Controls.Add(lblHumanizeSeparator);
             Controls.Add(txtHumanizeUpper);
             Controls.Add(btnToggleHumanize);
+            Controls.Add(cmbFocusApp);
             Controls.Add(btnStop);
             Controls.Add(btnPause);
             Controls.Add(btnStart);
