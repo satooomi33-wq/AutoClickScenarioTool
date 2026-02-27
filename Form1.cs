@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
 using AutoClickScenarioTool.Models;
+using System.Text.Json;
 using AutoClickScenarioTool.Services;
 namespace AutoClickScenarioTool
 {
@@ -30,6 +31,10 @@ namespace AutoClickScenarioTool
 
         private bool _isPaused = false;
         private DataGridViewEditMode _savedEditMode = DataGridViewEditMode.EditOnKeystroke;
+        // undo/redo stacks store serialized grid state (JSON of ScenarioStep list)
+        private readonly List<string> _undoStack = new List<string>();
+        private readonly List<string> _redoStack = new List<string>();
+        private const int MaxHistory = 5;
 
         // Expose script running state for external helpers (e.g. message filter)
         public bool IsScriptRunning => _scriptService?.IsRunning ?? false;
@@ -114,6 +119,110 @@ namespace AutoClickScenarioTool
             public int Bottom;
         }
 
+        private void DgvScenario_CellEndEdit(object? sender, DataGridViewCellEventArgs e)
+        {
+            try { PushHistory(); UpdateUndoRedoButtons(); } catch { }
+        }
+
+        // History management for undo/redo
+        private bool _suppressHistory = false;
+        private void ResetHistory()
+        {
+            _undoStack.Clear();
+            _redoStack.Clear();
+            // push current state as baseline
+            try { var s = JsonSerializer.Serialize(ReadStepsFromGrid()); _undoStack.Add(s); } catch { }
+            UpdateUndoRedoButtons();
+        }
+
+        private void PushHistory()
+        {
+            if (_suppressHistory) return;
+            try
+            {
+                var s = JsonSerializer.Serialize(ReadStepsFromGrid());
+                if (_undoStack.Count > 0 && _undoStack.Last() == s) return;
+                _undoStack.Add(s);
+                if (_undoStack.Count > MaxHistory) _undoStack.RemoveAt(0);
+                _redoStack.Clear();
+                UpdateUndoRedoButtons();
+            }
+            catch { }
+        }
+
+        private void UpdateUndoRedoButtons()
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(UpdateUndoRedoButtons));
+                    return;
+                }
+                try { btnUndo.Enabled = _undoStack.Count > 1; } catch { }
+                try { btnRedo.Enabled = _redoStack.Count > 0; } catch { }
+            }
+            catch { }
+        }
+
+        private void ApplyState(string state)
+        {
+            try
+            {
+                var list = JsonSerializer.Deserialize<List<ScenarioStep>>(state) ?? new List<ScenarioStep>();
+                _suppressHistory = true;
+                try { FillGridWithSteps(list); } catch { }
+                _suppressHistory = false;
+            }
+            catch { }
+        }
+
+        private void btnUndo_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (_undoStack.Count <= 1) return; // nothing to undo
+                var current = _undoStack.Last();
+                _undoStack.RemoveAt(_undoStack.Count - 1);
+                _redoStack.Add(current);
+                var prev = _undoStack.LastOrDefault();
+                if (prev != null) ApplyState(prev);
+                UpdateUndoRedoButtons();
+            }
+            catch { }
+        }
+
+        private void btnRedo_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (_redoStack.Count == 0) return;
+                var s = _redoStack.Last();
+                _redoStack.RemoveAt(_redoStack.Count - 1);
+                _undoStack.Add(s);
+                ApplyState(s);
+                UpdateUndoRedoButtons();
+            }
+            catch { }
+        }
+
+        // Auto-adjust grid columns to fit contents
+        private void AdjustGridColumnWidths()
+        {
+            try
+            {
+                if (dgvScenario == null) return;
+                dgvScenario.SuspendLayout();
+                foreach (DataGridViewColumn col in dgvScenario.Columns)
+                {
+                    col.AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
+                }
+                dgvScenario.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
+                dgvScenario.ResumeLayout();
+            }
+            catch { }
+        }
+
         // Populate the focus-app combo with currently visible top-level windows
         private void PopulateFocusAppList()
         {
@@ -137,6 +246,7 @@ namespace AutoClickScenarioTool
                         if (seen.Add(display)) cmbFocusApp.Items.Add(display);
                     }
                     catch { }
+            try { AdjustGridColumnWidths(); } catch { }
                 }
                 // restore previous selection if still present
                 if (!string.IsNullOrWhiteSpace(prev))
@@ -307,6 +417,7 @@ namespace AutoClickScenarioTool
             {
                 dgvScenario.KeyDown += DgvScenario_KeyDown;
                 dgvScenario.CellDoubleClick += DgvScenario_CellDoubleClick;
+                dgvScenario.CellEndEdit += DgvScenario_CellEndEdit;
             }
             catch { }
 
@@ -750,6 +861,7 @@ namespace AutoClickScenarioTool
                 for (int i = 3; i < dgvScenario.ColumnCount; i++) cells[i] = string.Empty;
                 dgvScenario.Rows.Add(cells);
                 RefreshNoColumn();
+            try { AdjustGridColumnWidths(); } catch { }
             }
             catch { }
         }
@@ -1317,7 +1429,12 @@ namespace AutoClickScenarioTool
             try
             {
                 var steps = await _data_service_load(path).ConfigureAwait(false);
-                Invoke(new Action(() => FillGridWithSteps(steps)));
+                Invoke(new Action(() =>
+                {
+                    FillGridWithSteps(steps);
+                    // reset history after loading a file
+                    try { ResetHistory(); } catch { }
+                }));
                 AppendLog("読み込み完了: " + path);
             }
             catch (Exception ex)
@@ -1349,6 +1466,7 @@ namespace AutoClickScenarioTool
                         AppendLog("保存: " + path);
                         RefreshFileList();
                         try { cmbFiles.Text = fileBase; } catch { }
+                        try { ResetHistory(); } catch { }
                     }));
                 }
                 else
@@ -1356,6 +1474,7 @@ namespace AutoClickScenarioTool
                     AppendLog("保存: " + path);
                     RefreshFileList();
                     try { cmbFiles.Text = fileBase; } catch { }
+                    try { ResetHistory(); } catch { }
                 }
             }
             catch
@@ -1654,6 +1773,7 @@ namespace AutoClickScenarioTool
         private void dgvScenario_RowsChanged(object? sender, EventArgs e)
         {
             RefreshNoColumn();
+            try { PushHistory(); UpdateUndoRedoButtons(); } catch { }
         }
 
         // セル編集後、最下行にデータが入ったら新たな空行を追加
@@ -1696,6 +1816,7 @@ namespace AutoClickScenarioTool
                 }
             }
             catch { }
+            try { PushHistory(); UpdateUndoRedoButtons(); } catch { }
         }
 
         private bool _captureMode = false;

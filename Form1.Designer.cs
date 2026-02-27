@@ -53,6 +53,8 @@
         private System.Windows.Forms.TextBox txtHumanizeUpper;
         private System.Windows.Forms.Label lblHumanizeSeparator;
         private System.Windows.Forms.Button btnToggleHumanize;
+        private System.Windows.Forms.Button btnUndo;
+        private System.Windows.Forms.Button btnRedo;
 
         private void InitializeComponent()
         {
@@ -82,6 +84,8 @@
             txtHumanizeUpper = new TextBox();
             btnToggleHumanize = new Button();
             cmbFocusApp = new ComboBox();
+            btnUndo = new Button();
+            btnRedo = new Button();
             captureToolStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvScenario).BeginInit();
             SuspendLayout();
@@ -326,6 +330,26 @@
             cmbFocusApp.TabIndex = 18;
             cmbFocusApp.DropDown += cmbFocusApp_DropDown;
             // 
+            // btnUndo
+            // 
+            btnUndo.Location = new Point(864, 137);
+            btnUndo.Name = "btnUndo";
+            btnUndo.Size = new Size(37, 37);
+            btnUndo.TabIndex = 19;
+            btnUndo.Text = "↶";
+            btnUndo.UseVisualStyleBackColor = true;
+            btnUndo.Click += btnUndo_Click;
+            // 
+            // btnRedo
+            // 
+            btnRedo.Location = new Point(908, 137);
+            btnRedo.Name = "btnRedo";
+            btnRedo.Size = new Size(37, 37);
+            btnRedo.TabIndex = 20;
+            btnRedo.Text = "↷";
+            btnRedo.UseVisualStyleBackColor = true;
+            btnRedo.Click += btnRedo_Click;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(12F, 30F);
@@ -349,6 +373,8 @@
             Controls.Add(txtHumanizeUpper);
             Controls.Add(btnToggleHumanize);
             Controls.Add(cmbFocusApp);
+            Controls.Add(btnUndo);
+            Controls.Add(btnRedo);
             Controls.Add(btnStop);
             Controls.Add(btnPause);
             Controls.Add(btnStart);
