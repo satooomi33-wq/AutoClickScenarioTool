@@ -1,7 +1,7 @@
 [
   {
-    "Delay": 500,
-    "PressDuration": 50,
+    "Delay": 0,
+    "PressDuration": 0,
     "Positions": [
       "M"
     ],

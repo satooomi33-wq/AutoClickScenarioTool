@@ -81,6 +81,9 @@ namespace AutoClickScenarioTool.Services
             {
                 try
                 {
+                    // change: schedule actions relative to previous row end; each action gets its own humanized offset
+                    var runTimer = System.Diagnostics.Stopwatch.StartNew();
+                    long prevRowEnd = 0; // milliseconds since run start
                     for (int i = startIndex; i < steps.Count; i++)
                     {
                         token.ThrowIfCancellationRequested();
@@ -88,132 +91,105 @@ namespace AutoClickScenarioTool.Services
 
                         CurrentIndex = i;
                         var step = steps[i];
-                        // prepare actions (backward compatible)
                         var actions = (step.Actions != null && step.Actions.Count > 0) ? step.Actions : step.Positions;
-                        OnLog?.Invoke($"行{i + 1}: アクション {actions.Count} 件実行");
+                        int actionCount = actions.Count;
+                        OnLog?.Invoke($"行{i + 1}: アクション {actionCount} 件スケジュール");
 
-                        // execute each action: coordinate or key
-                        foreach (var a in actions.Where(x => !string.IsNullOrWhiteSpace(x)))
+                        int baseDelay = Math.Max(0, step.Delay);
+                        int basePd = Math.Max(0, step.PressDuration);
+
+                        // build per-action schedule
+                        var schedule = new List<(int idx, string action, long scheduledStartMs, int pdBase, int pdActual, int pdOffset, int delayOffset)>();
+                        for (int aidx = 0; aidx < actionCount; aidx++)
                         {
-                            var s = a.Trim();
-                            // debug: log raw action for diagnostics
-                            OnLog?.Invoke($"アクション解析: '{s}'");
-                            var parts = s.Split(',');
-                            // require two-axis coordinates. allow decimals and negative; normalize by rounding to int pixels
+                            var action = actions[aidx]?.Trim() ?? string.Empty;
+                            int delayOffset = 0;
+                            if (HumanizeEnabled && baseDelay > 0)
+                            {
+                                try
+                                {
+                                    int lower = Math.Max(0, HumanizeLower);
+                                    int upper = Math.Max(lower, HumanizeUpper);
+                                    if (upper > 0)
+                                    {
+                                        int off;
+                                        do { off = _rng.Next(-upper, upper + 1); } while (Math.Abs(off) < lower);
+                                        delayOffset = off;
+                                    }
+                                }
+                                catch { }
+                            }
+                            int actualDelay = Math.Max(0, baseDelay + delayOffset);
+
+                            int pdOffset = 0;
+                            if (HumanizeEnabled && basePd > 0)
+                            {
+                                try
+                                {
+                                    int lower = Math.Max(0, HumanizeLower);
+                                    int upper = Math.Max(lower, HumanizeUpper);
+                                    if (upper > 0)
+                                    {
+                                        int off;
+                                        do { off = _rng.Next(-upper, upper + 1); } while (Math.Abs(off) < lower);
+                                        pdOffset = off;
+                                    }
+                                }
+                                catch { }
+                            }
+                            int pdActual = Math.Max(0, basePd + pdOffset);
+
+                            long scheduledStart = prevRowEnd + actualDelay;
+                            schedule.Add((aidx, action, scheduledStart, basePd, pdActual, pdOffset, delayOffset));
+                        }
+
+                        var ordered = schedule.OrderBy(x => x.scheduledStartMs).ThenBy(x => x.idx).ToList();
+                        long rowEndCandidate = prevRowEnd;
+
+                        foreach (var item in ordered)
+                        {
+                            token.ThrowIfCancellationRequested();
+                            _pauseEvent.Wait(token);
+
+                            // wait until scheduled start
+                            while (true)
+                            {
+                                var now = runTimer.ElapsedMilliseconds;
+                                var toWait = item.scheduledStartMs - now;
+                                if (toWait <= 0) break;
+                                var chunk = (int)Math.Min(100, toWait);
+                                token.ThrowIfCancellationRequested();
+                                _pauseEvent.Wait(token);
+                                await Task.Delay(chunk, token).ConfigureAwait(false);
+                            }
+
+                            OnLog?.Invoke($"行{i + 1} アクション{item.idx + 1}/{actionCount} 開始 (delay base={baseDelay} offset={item.delayOffset})");
+                            OnLog?.Invoke($"アクション解析: '{item.action}'");
+
+                            var parts = item.action.Split(',');
                             if (parts.Length >= 2
                                 && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var dx)
                                 && double.TryParse(parts[1].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var dy))
                             {
                                 var xx = (int)Math.Round(dx);
                                 var yy = (int)Math.Round(dy);
-                                var pl = new PositionList();
-                                pl.Points.Add(new Point(xx, yy));
-                                // determine press duration and apply humanization if enabled
-                                var pdBase = Math.Max(0, step.PressDuration);
-                                var pd = pdBase;
-                                int pdOffset = 0;
-                                if (HumanizeEnabled && pdBase > 0)
-                                {
-                                    try
-                                    {
-                                        int lower = Math.Max(0, HumanizeLower);
-                                        int upper = Math.Max(lower, HumanizeUpper);
-                                        if (upper > 0)
-                                        {
-                                            int offset;
-                                            do
-                                            {
-                                                offset = _rng.Next(-upper, upper + 1);
-                                            } while (Math.Abs(offset) < lower);
-                                            pdOffset = offset;
-                                            pd = Math.Max(0, pdBase + pdOffset);
-                                        }
-                                    }
-                                    catch { }
-                                }
-                                // log coordinate being clicked and press duration info using common formatter
+                                var pl = new PositionList(); pl.Points.Add(new Point(xx, yy));
                                 OnLog?.Invoke($"座標実行: {xx},{yy}");
-                                LogTiming("押下時間", pdBase, pd, pdOffset);
-                                _input.ClickMultiple(pl, pd);
-                                // small pause between actions — allow target window to become foreground
-                                await Task.Delay(120, token).ConfigureAwait(false);
+                                LogTiming("押下時間", item.pdBase, item.pdActual, item.pdOffset);
+                                _input.ClickMultiple(pl, item.pdActual);
+                                rowEndCandidate = Math.Max(rowEndCandidate, runTimer.ElapsedMilliseconds + 0);
                             }
                             else
                             {
-                                // treat as key action
-                                // determine press duration and apply humanization for key actions as well
-                                var pdBaseKey = Math.Max(0, step.PressDuration);
-                                var pdKey = pdBaseKey;
-                                int pdKeyOffset = 0;
-                                if (HumanizeEnabled && pdBaseKey > 0)
-                                {
-                                    try
-                                    {
-                                        int lowerK = Math.Max(0, HumanizeLower);
-                                        int upperK = Math.Max(lowerK, HumanizeUpper);
-                                        if (upperK > 0)
-                                        {
-                                            int offsetK;
-                                            do
-                                            {
-                                                offsetK = _rng.Next(-upperK, upperK + 1);
-                                            } while (Math.Abs(offsetK) < lowerK);
-                                            pdKeyOffset = offsetK;
-                                            pdKey = Math.Max(0, pdBaseKey + pdKeyOffset);
-                                        }
-                                    }
-                                    catch { }
-                                }
-                                LogTiming("押下時間", pdBaseKey, pdKey, pdKeyOffset);
-                                try
-                                {
-                                    // attempt to hold key for the press duration when possible
-                                    _input.SendByKeyNameWithDuration(s, pdKey, UseScanCode);
-                                }
-                                catch
-                                {
-                                    // fallback to immediate send
-                                    SendKeyAction(s);
-                                }
-                                await Task.Delay(60, token).ConfigureAwait(false);
+                                LogTiming("押下時間", item.pdBase, item.pdActual, item.pdOffset);
+                                try { _input.SendByKeyNameWithDuration(item.action, item.pdActual, UseScanCode); }
+                                catch { SendKeyAction(item.action); }
+                                rowEndCandidate = Math.Max(rowEndCandidate, runTimer.ElapsedMilliseconds + 0);
                             }
                         }
 
-                        // delay (with optional humanization jitter)
-                        var baseDelay = Math.Max(0, step.Delay);
-                        var delay = baseDelay;
-                        int humanizeOffset = 0;
-                        if (HumanizeEnabled && baseDelay > 0)
-                        {
-                            try
-                            {
-                                int lower = Math.Max(0, HumanizeLower);
-                                int upper = Math.Max(lower, HumanizeUpper);
-                                if (upper > 0)
-                                {
-                                    int offset;
-                                    // ensure magnitude >= lower and <= upper (allow negative/positive)
-                                    do
-                                    {
-                                        offset = _rng.Next(-upper, upper + 1);
-                                    } while (Math.Abs(offset) < lower);
-                                    humanizeOffset = offset;
-                                    delay = Math.Max(0, baseDelay + humanizeOffset);
-                                }
-                            }
-                            catch { }
-                        }
-
-                        // Log delay info using common formatter
-                        LogTiming("遅延", baseDelay, delay, humanizeOffset);
-
-                        var sw = System.Diagnostics.Stopwatch.StartNew();
-                        while (sw.ElapsedMilliseconds < delay)
-                        {
-                            token.ThrowIfCancellationRequested();
-                            _pauseEvent.Wait(token);
-                            await Task.Delay(50, token).ConfigureAwait(false);
-                        }
+                        // row end is when the last action finished
+                        prevRowEnd = Math.Max(prevRowEnd, runTimer.ElapsedMilliseconds);
                     }
 
                     OnLog?.Invoke("実行完了");
