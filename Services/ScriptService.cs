@@ -10,6 +10,10 @@ namespace AutoClickScenarioTool.Services
 {
     public class ScriptService
     {
+        // Optional override to send key actions externally (e.g., to Teensy via serial).
+        // Signature: (keySpec, durationMs, useScanCode) => returns true if handled and default sending should be skipped.
+        public Func<string, int, bool, bool>? ExternalSendOverride { get; set; }
+
         private readonly InputService _input;
         private CancellationTokenSource? _cts;
         private ManualResetEventSlim _pauseEvent = new ManualResetEventSlim(true);
@@ -182,7 +186,15 @@ namespace AutoClickScenarioTool.Services
                             else
                             {
                                 LogTiming("押下時間", item.pdBase, item.pdActual, item.pdOffset);
-                                try { _input.SendByKeyNameWithDuration(item.action, item.pdActual, UseScanCode); }
+                                try
+                                {
+                                    var handled = false;
+                                    try { handled = ExternalSendOverride?.Invoke(item.action, item.pdActual, UseScanCode) ?? false; } catch { handled = false; }
+                                    if (!handled)
+                                    {
+                                        _input.SendByKeyNameWithDuration(item.action, item.pdActual, UseScanCode);
+                                    }
+                                }
                                 catch { SendKeyAction(item.action); }
                                 rowEndCandidate = Math.Max(rowEndCandidate, runTimer.ElapsedMilliseconds + 0);
                             }
@@ -229,16 +241,28 @@ namespace AutoClickScenarioTool.Services
         {
             try
             {
-                if (UseScanCode)
+                try
                 {
-                    // InputService should provide scan-code based sending API
-                    _input.SendByScanCode(keySpec);
-                    OnLog?.Invoke($"Send by ScanCode: {keySpec}");
+                    var handled = false;
+                    try { handled = ExternalSendOverride?.Invoke(keySpec, 0, UseScanCode) ?? false; } catch { handled = false; }
+                    if (!handled)
+                    {
+                        if (UseScanCode)
+                        {
+                            // InputService should provide scan-code based sending API
+                            _input.SendByScanCode(keySpec);
+                            OnLog?.Invoke($"Send by ScanCode: {keySpec}");
+                        }
+                        else
+                        {
+                            _input.SendByKeyName(keySpec);
+                            OnLog?.Invoke($"Send by KeyName: {keySpec}");
+                        }
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    _input.SendByKeyName(keySpec);
-                    OnLog?.Invoke($"Send by KeyName: {keySpec}");
+                    OnLog?.Invoke($"SendKeyAction failed: {ex.Message}");
                 }
             }
             catch (Exception ex)

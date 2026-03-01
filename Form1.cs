@@ -11,10 +11,16 @@ using System.Windows.Forms;
 using AutoClickScenarioTool.Models;
 using System.Text.Json;
 using AutoClickScenarioTool.Services;
+using System.IO.Ports;
 namespace AutoClickScenarioTool
 {
     public partial class Form1 : Form
     {
+        // Serial/Teensy support
+        private SerialPort? _teensyPort;
+        private CancellationTokenSource? _serialScanCts;
+        private readonly Dictionary<string, string> _detectedTeensies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private string _selectedOutputTarget = "PC"; // "PC" or COM port name
         // ComboBox for selecting focus target app before playback (declared in Designer)
         private const string NoFocusLabel = "アプリフォーカス無";
         private enum CaptureModeState { Disabled, Mouse, Key }
@@ -26,7 +32,6 @@ namespace AutoClickScenarioTool
         private readonly DataService _dataService = new DataService();
         private readonly InputService _inputService = new InputService();
         private Models.DefaultSettings _defaultSettings = new Models.DefaultSettings();
-        // ...existing code...
         private ScriptService? _scriptService;
 
         private bool _isPaused = false;
@@ -293,10 +298,219 @@ namespace AutoClickScenarioTool
             return false;
         }
 
+        // ---- Serial monitor helpers ----
+        private CancellationTokenSource? _serialMonitorCts2;
+
+        private void RestartSerialMonitorIfNeeded()
+        {
+            try
+            {
+                StopSerialMonitor();
+                if (!string.Equals(_selectedOutputTarget, "PC", StringComparison.OrdinalIgnoreCase))
+                {
+                    StartSerialMonitor();
+                }
+            }
+            catch { }
+        }
+
+        private void StartSerialMonitor()
+        {
+            try
+            {
+                StopSerialMonitor();
+                _serialMonitorCts2 = new CancellationTokenSource();
+                var token = _serialMonitorCts2.Token;
+                Task.Run(async () =>
+                {
+                    while (!token.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            if (!string.Equals(_selectedOutputTarget, "PC", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // ensure port is open
+                                if (_teensyPort == null || !_teensyPort.IsOpen)
+                                {
+                                    try
+                                    {
+                                        if (_teensyPort != null) { _teensyPort.Dispose(); _teensyPort = null; }
+                                        _teensyPort = new SerialPort(_selectedOutputTarget, 115200) { NewLine = "\n", ReadTimeout = 500, WriteTimeout = 500 };
+                                        _teensyPort.DataReceived += TeensyPort_DataReceived;
+                                        _teensyPort.Open();
+                                    }
+                                    catch { try { _teensyPort = null; } catch { } }
+                                }
+
+                                // update UI status
+                                if (_teensyPort != null && _teensyPort.IsOpen)
+                                {
+                                    SetSerialStatus($"接続: {_teensyPort.PortName}");
+                                }
+                                else
+                                {
+                                    SetSerialStatus("未接続");
+                                    // try reconnect if enabled
+                                    if (!chkAutoReconnect.Checked)
+                                        break;
+                                }
+                            }
+                            else
+                            {
+                                SetSerialStatus("未使用(PC)");
+                                break;
+                            }
+                        }
+                        catch { }
+                        await Task.Delay(1500, token).ConfigureAwait(false);
+                    }
+                }, token);
+            }
+            catch { }
+        }
+
+        private void StopSerialMonitor()
+        {
+            try
+            {
+                try { _serialMonitorCts2?.Cancel(); } catch { }
+                try { _serialMonitorCts2?.Dispose(); } catch { }
+                _serialMonitorCts2 = null;
+            }
+            catch { }
+        }
+
+        private void CloseTeensyPort()
+        {
+            try
+            {
+                if (_teensyPort != null)
+                {
+                    try { _teensyPort.DataReceived -= TeensyPort_DataReceived; } catch { }
+                    try { if (_teensyPort.IsOpen) _teensyPort.Close(); } catch { }
+                    try { _teensyPort.Dispose(); } catch { }
+                    _teensyPort = null;
+                }
+            }
+            catch { }
+        }
+
+        private void TeensyPort_DataReceived(object? sender, SerialDataReceivedEventArgs e)
+        {
+            try
+            {
+                var sp = sender as SerialPort;
+                if (sp == null) return;
+                string line = string.Empty;
+                try { line = sp.ReadLine(); } catch { }
+                if (string.IsNullOrWhiteSpace(line)) return;
+                // append to UI log
+                AppendLog($"[Teensy] {line.Trim()}");
+            }
+            catch { }
+        }
+
+        private void SetSerialStatus(string s)
+        {
+            try
+            {
+                if (lblSerialStatus == null) return;
+                if (lblSerialStatus.InvokeRequired)
+                {
+                    lblSerialStatus.Invoke(new Action(() => lblSerialStatus.Text = s));
+                }
+                else lblSerialStatus.Text = s;
+            }
+            catch { }
+        }
+
+        // Designer click handler for refresh serial button
+        private void btnRefreshSerial_Click(object sender, EventArgs e)
+        {
+            try { PopulateSerialPorts(); } catch { }
+        }
+
         // Designer DropDown event wrapper
         private void cmbFocusApp_DropDown(object? sender, EventArgs e)
         {
             try { PopulateFocusAppList(); } catch { }
+        }
+
+        // Refresh the serial ports list into UI
+        private void PopulateSerialPorts()
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(PopulateSerialPorts));
+                    return;
+                }
+                cmbSerialPorts.Items.Clear();
+                var ports = SerialPort.GetPortNames().OrderBy(p => p).ToArray();
+                foreach (var p in ports) cmbSerialPorts.Items.Add(p);
+                if (cmbSerialPorts.Items.Count > 0)
+                {
+                    try { cmbSerialPorts.SelectedIndex = 0; } catch { }
+                }
+                // update output target combo: keep PC option, then append Teensy entries if detected
+                cmbOutputTarget.Items.Clear();
+                cmbOutputTarget.Items.Add("PC (Local)");
+                foreach (var p in ports)
+                {
+                    cmbOutputTarget.Items.Add($"Teensy: {p}");
+                }
+                if (cmbOutputTarget.Items.Count > 0) cmbOutputTarget.SelectedIndex = 0;
+            }
+            catch { }
+        }
+
+        
+
+        private void cmbOutputTarget_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            try
+            {
+                var sel = cmbOutputTarget.SelectedItem?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(sel)) return;
+                if (sel.StartsWith("Teensy:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var port = sel.Substring(sel.IndexOf(':') + 1).Trim();
+                    // close existing if different
+                    if (_teensyPort != null && !_teensyPort.PortName.Equals(port, StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { _teensyPort.Close(); } catch { }
+                        _teensyPort = null;
+                    }
+                    // open port
+                    try
+                    {
+                        if (_teensyPort == null)
+                        {
+                            _teensyPort = new SerialPort(port, 115200) { NewLine = "\n", ReadTimeout = 300, WriteTimeout = 300 };
+                            _teensyPort.Open();
+                        }
+                        _selectedOutputTarget = port;
+                        AppendLog($"出力先: Teensy ({port}) に設定");
+                    }
+                    catch (Exception ex)
+                    {
+                        AppendLog($"Teensy 接続失敗: {ex.Message}");
+                        _selectedOutputTarget = "PC";
+                        cmbOutputTarget.SelectedIndex = 0;
+                    }
+                }
+                else
+                {
+                    _selectedOutputTarget = "PC";
+                    // close serial if open
+                    try { CloseTeensyPort(); } catch { }
+                    AppendLog("出力先: PC (Local) に設定");
+                }
+            }
+            catch { }
+            // start/stop monitor depending on selection
+            try { RestartSerialMonitorIfNeeded(); } catch { }
         }
 
         // Attempt to bring a window to the foreground. Returns true on success.
@@ -443,6 +657,7 @@ namespace AutoClickScenarioTool
 
             RefreshFileList();
             _ = LoadAndApplyDefaultsAsync();
+            try { PopulateSerialPorts(); } catch { }
             // ensure there's at least one editable row on startup
             try { EnsureGridHasRow(); } catch { }
 
@@ -787,6 +1002,37 @@ namespace AutoClickScenarioTool
                     _scriptService.UseScanCode = _defaultSettings.UseScanCode;
             }
             catch { }
+            // wire external send override to route key sends to Teensy when selected
+            try
+            {
+                if (_scriptService != null)
+                {
+                    _scriptService.ExternalSendOverride = (keySpec, duration, useScan) =>
+                    {
+                        try
+                        {
+                            // if user selected PC, do not override; let ScriptService fallback to InputService
+                            if (string.Equals(_selectedOutputTarget, "PC", StringComparison.OrdinalIgnoreCase))
+                                return false;
+
+                            // otherwise, attempt to send to Teensy serial port
+                            if (!string.IsNullOrWhiteSpace(_selectedOutputTarget) && _teensyPort != null && _teensyPort.IsOpen)
+                            {
+                                try
+                                {
+                                    var cmd = $"KEY:{keySpec}:{duration}";
+                                    _teensyPort.WriteLine(cmd);
+                                    return true;
+                                }
+                                catch { return false; }
+                            }
+                        }
+                        catch { }
+                        return false;
+                    };
+                }
+            }
+            catch { }
         }
 
         // wrappers to avoid tiny naming collisions
@@ -1128,7 +1374,7 @@ namespace AutoClickScenarioTool
                 {
                     dgvScenario.CurrentCell = dgvScenario.Rows[e.RowIndex].Cells[e.ColumnIndex];
 
-                    // 編集開始は「キャプチャ無効（Disabled）」時のみ許可する
+                    // 編集開始は「キャプチャ無（Disabled）」時のみ許可する
                     if (_captureModeState == CaptureModeState.Disabled)
                     {
                         var col = dgvScenario.Columns[e.ColumnIndex];
@@ -1480,7 +1726,7 @@ namespace AutoClickScenarioTool
             catch
             {
                 // best-effort: if UI update fails, log to textbox if possible
-                try { AppendLog("保存完了(但しUI更新に失敗): " + path); } catch { }
+                try { AppendLog("保存完了(ばんしうひようのかいそくにしっぱい): " + path); } catch { }
             }
         }
 
@@ -2195,7 +2441,7 @@ namespace AutoClickScenarioTool
                             AppendLog("AttachThreadInput exception: " + ex.Message);
                         }
 
-                        // Try multiple ways to bring window up
+                        // Try multiple ways to bring our main window up
                         try { ShowWindowAsync(this.Handle, SW_SHOWNORMAL); } catch { }
                         try { BringWindowToTop(this.Handle); } catch { }
                         try { SetWindowPos(this.Handle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE); } catch { }
@@ -2224,9 +2470,7 @@ namespace AutoClickScenarioTool
                             success = true;
                             break;
                         }
-
-                        AppendLog($"Not foreground yet (nowFg=0x{nowFg.ToInt64():X}), sleeping before retry");
-                        Thread.Sleep(60);
+                        try { Thread.Sleep(80); } catch { }
                     }
                     AppendLog($"Foreground attempts finished, success={success}");
                 }
@@ -2234,69 +2478,7 @@ namespace AutoClickScenarioTool
                 {
                     AppendLog("Foreground helper failed: " + ex.Message);
                 }
-
-                // If previous attempts failed to make us foreground, try a temporary focus-grabber window trick
-                try
-                {
-                    // if still not foreground, create a tiny topmost window, activate it, then close it
-                    var nowFg2 = GetForegroundWindow();
-                    if (nowFg2 != this.Handle)
-                    {
-                        AppendLog("Attempting temporary focus grabber trick");
-                        TemporaryFocusGrabber();
-                        var nowFg3 = GetForegroundWindow();
-                        AppendLog($"After grabber, foreground hWnd=0x{nowFg3.ToInt64():X}");
-                        // final attempt
-                        try { SetForegroundWindow(this.Handle); } catch { }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    AppendLog("Focus grabber failed: " + ex.Message);
-                }
-                // make topmost briefly and keep it for a short duration to ensure visibility
-                var ok1 = SetWindowPos(this.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
-                var err1 = Marshal.GetLastWin32Error();
-                AppendLog($"SetWindowPos TOPMOST result={ok1}, err={err1}");
-                try { Thread.Sleep(220); } catch { }
-                var ok2 = SetWindowPos(this.Handle, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-                var err2 = Marshal.GetLastWin32Error();
-                AppendLog($"SetWindowPos NOTOPMOST result={ok2}, err={err2}");
-                // 追加フォールバック：ShowWindow + SetWindowPos(HWND_TOP) + Altキー送信
-                try
-                {
-                    ShowWindow(this.Handle, SW_SHOWNORMAL);
-                    SetWindowPos(this.Handle, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-                    // simulate ALT press/release to help SetForegroundWindow permissions
-                    keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
-                    keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                    SetForegroundWindow(this.Handle);
-                    SetActiveWindow(this.Handle);
-                    AppendLog("Fallback foreground attempts executed");
-                }
-                catch (Exception ex)
-                {
-                    AppendLog("Fallback foreground failed: " + ex.Message);
-                }
-                this.BringToFront();
-                this.Activate();
             }
-            else
-            {
-                AppendLog("Debugger attached or VS foreground - skipping foreground/topmost hacks to avoid VS UI changes");
-            }
-            // DataGridViewの選択セルにフォーカス・編集状態・選択状態を明示的に戻す
-            BeginInvoke(new Action(() => {
-                dgvScenario.CurrentCell = dgvScenario.Rows[rowIndex].Cells[targetCol];
-                dgvScenario.Select();
-                dgvScenario.Focus();
-                if (dgvScenario.CurrentCell != null)
-                {
-                    dgvScenario.BeginEdit(false);
-                    dgvScenario.CurrentCell.Selected = true;
-                    AppendLog($"選択セルにフォーカス復帰: row={rowIndex}, col={targetCol}");
-                }
-            }));
         }
 
         // Temporary tiny topmost window trick to nudge the OS focus rules

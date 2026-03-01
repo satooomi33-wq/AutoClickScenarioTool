@@ -46,6 +46,13 @@
         private System.Windows.Forms.Button btnBrowse;
         private System.Windows.Forms.ComboBox cmbFiles;
         private System.Windows.Forms.Button btnSave;
+        private System.Windows.Forms.ComboBox cmbSerialPorts;
+        private System.Windows.Forms.Button btnRefreshSerial;
+        private System.Windows.Forms.ComboBox cmbOutputTarget;
+        private System.Windows.Forms.Label lblSerialPorts;
+        private System.Windows.Forms.Label lblOutputTarget;
+        private System.Windows.Forms.CheckBox chkAutoReconnect;
+        private System.Windows.Forms.Label lblSerialStatus;
         public System.Windows.Forms.DataGridView dgvScenario;
         private System.Windows.Forms.TextBox txtLog;
         private System.Windows.Forms.Label lblHumanizeRange;
@@ -71,6 +78,13 @@
             btnBrowse = new Button();
             cmbFiles = new ComboBox();
             btnSave = new Button();
+            cmbSerialPorts = new ComboBox();
+            btnRefreshSerial = new Button();
+            cmbOutputTarget = new ComboBox();
+            lblSerialPorts = new Label();
+            lblOutputTarget = new Label();
+            chkAutoReconnect = new CheckBox();
+            lblSerialStatus = new Label();
             dgvScenario = new DataGridView();
             txtLog = new TextBox();
             lblDefaultDelay = new Label();
@@ -93,7 +107,7 @@
             // btnStart
             // 
             btnStart.Font = new Font("Segoe UI Symbol", 8.142858F);
-            btnStart.Location = new Point(10, 137);
+            btnStart.Location = new Point(27, 399);
             btnStart.Name = "btnStart";
             btnStart.Size = new Size(75, 37);
             btnStart.TabIndex = 0;
@@ -104,7 +118,7 @@
             // btnPause
             // 
             btnPause.Font = new Font("Segoe UI Symbol", 8.142858F);
-            btnPause.Location = new Point(91, 137);
+            btnPause.Location = new Point(108, 399);
             btnPause.Name = "btnPause";
             btnPause.Size = new Size(75, 37);
             btnPause.TabIndex = 1;
@@ -115,7 +129,7 @@
             // btnStop
             // 
             btnStop.Font = new Font("Segoe UI Symbol", 8.142858F);
-            btnStop.Location = new Point(172, 137);
+            btnStop.Location = new Point(189, 399);
             btnStop.Name = "btnStop";
             btnStop.Size = new Size(75, 37);
             btnStop.TabIndex = 2;
@@ -129,7 +143,7 @@
             captureToolStrip.Items.AddRange(new ToolStripItem[] { tsbDisable, tsbMouse, tsbKey, tsbScanCode, tslCaptureStatus });
             captureToolStrip.Location = new Point(0, 0);
             captureToolStrip.Name = "captureToolStrip";
-            captureToolStrip.Size = new Size(1227, 40);
+            captureToolStrip.Size = new Size(1240, 40);
             captureToolStrip.TabIndex = 100;
             captureToolStrip.Text = "captureToolStrip";
             // 
@@ -209,10 +223,73 @@
             btnSave.UseVisualStyleBackColor = true;
             btnSave.Click += btnSave_Click;
             // 
+            // cmbSerialPorts
+            // 
+            cmbSerialPorts.FormattingEnabled = true;
+            cmbSerialPorts.Location = new Point(14, 183);
+            cmbSerialPorts.Name = "cmbSerialPorts";
+            cmbSerialPorts.Size = new Size(200, 38);
+            cmbSerialPorts.TabIndex = 3;
+            // 
+            // btnRefreshSerial
+            // 
+            btnRefreshSerial.Location = new Point(220, 183);
+            btnRefreshSerial.Name = "btnRefreshSerial";
+            btnRefreshSerial.Size = new Size(46, 38);
+            btnRefreshSerial.TabIndex = 4;
+            btnRefreshSerial.Text = "R";
+            btnRefreshSerial.UseVisualStyleBackColor = true;
+            btnRefreshSerial.Click += btnRefreshSerial_Click;
+            // 
+            // cmbOutputTarget
+            // 
+            cmbOutputTarget.FormattingEnabled = true;
+            cmbOutputTarget.Location = new Point(300, 183);
+            cmbOutputTarget.Name = "cmbOutputTarget";
+            cmbOutputTarget.Size = new Size(280, 38);
+            cmbOutputTarget.TabIndex = 6;
+            cmbOutputTarget.SelectedIndexChanged += cmbOutputTarget_SelectedIndexChanged;
+            // 
+            // lblSerialPorts
+            // 
+            lblSerialPorts.Location = new Point(14, 150);
+            lblSerialPorts.Name = "lblSerialPorts";
+            lblSerialPorts.Size = new Size(178, 30);
+            lblSerialPorts.TabIndex = 2;
+            lblSerialPorts.Text = "シリアルポート:";
+            lblSerialPorts.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // lblOutputTarget
+            // 
+            lblOutputTarget.Location = new Point(300, 150);
+            lblOutputTarget.Name = "lblOutputTarget";
+            lblOutputTarget.Size = new Size(100, 30);
+            lblOutputTarget.TabIndex = 5;
+            lblOutputTarget.Text = "出力先:";
+            lblOutputTarget.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // chkAutoReconnect
+            // 
+            chkAutoReconnect.Location = new Point(790, 183);
+            chkAutoReconnect.Name = "chkAutoReconnect";
+            chkAutoReconnect.Size = new Size(160, 35);
+            chkAutoReconnect.TabIndex = 8;
+            chkAutoReconnect.Text = "自動再接続";
+            chkAutoReconnect.UseVisualStyleBackColor = true;
+            // 
+            // lblSerialStatus
+            // 
+            lblSerialStatus.Location = new Point(600, 183);
+            lblSerialStatus.Name = "lblSerialStatus";
+            lblSerialStatus.Size = new Size(180, 35);
+            lblSerialStatus.TabIndex = 7;
+            lblSerialStatus.Text = "シリアル: 未接続";
+            lblSerialStatus.TextAlign = ContentAlignment.MiddleLeft;
+            // 
             // dgvScenario
             // 
             dgvScenario.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dgvScenario.Location = new Point(12, 200);
+            dgvScenario.Location = new Point(14, 472);
             dgvScenario.Name = "dgvScenario";
             dgvScenario.RowHeadersWidth = 72;
             dgvScenario.RowTemplate.Height = 25;
@@ -227,7 +304,7 @@
             // 
             // txtLog
             // 
-            txtLog.Location = new Point(10, 730);
+            txtLog.Location = new Point(12, 1132);
             txtLog.Multiline = true;
             txtLog.Name = "txtLog";
             txtLog.ReadOnly = true;
@@ -313,7 +390,7 @@
             // 
             // btnToggleHumanize
             // 
-            btnToggleHumanize.Location = new Point(270, 137);
+            btnToggleHumanize.Location = new Point(270, 398);
             btnToggleHumanize.Name = "btnToggleHumanize";
             btnToggleHumanize.Size = new Size(146, 37);
             btnToggleHumanize.TabIndex = 3;
@@ -324,7 +401,7 @@
             // cmbFocusApp
             // 
             cmbFocusApp.FormattingEnabled = true;
-            cmbFocusApp.Location = new Point(424, 137);
+            cmbFocusApp.Location = new Point(433, 397);
             cmbFocusApp.Name = "cmbFocusApp";
             cmbFocusApp.Size = new Size(427, 38);
             cmbFocusApp.TabIndex = 18;
@@ -332,7 +409,7 @@
             // 
             // btnUndo
             // 
-            btnUndo.Location = new Point(864, 137);
+            btnUndo.Location = new Point(1122, 399);
             btnUndo.Name = "btnUndo";
             btnUndo.Size = new Size(37, 37);
             btnUndo.TabIndex = 19;
@@ -342,7 +419,7 @@
             // 
             // btnRedo
             // 
-            btnRedo.Location = new Point(908, 137);
+            btnRedo.Location = new Point(1166, 399);
             btnRedo.Name = "btnRedo";
             btnRedo.Size = new Size(37, 37);
             btnRedo.TabIndex = 20;
@@ -354,7 +431,7 @@
             // 
             AutoScaleDimensions = new SizeF(12F, 30F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1227, 980);
+            ClientSize = new Size(1240, 1422);
             Controls.Add(captureToolStrip);
             Controls.Add(txtLog);
             Controls.Add(dgvScenario);
@@ -362,6 +439,13 @@
             Controls.Add(cmbFiles);
             Controls.Add(btnBrowse);
             Controls.Add(txtDataFolder);
+            Controls.Add(lblSerialPorts);
+            Controls.Add(cmbSerialPorts);
+            Controls.Add(btnRefreshSerial);
+            Controls.Add(lblOutputTarget);
+            Controls.Add(cmbOutputTarget);
+            Controls.Add(lblSerialStatus);
+            Controls.Add(chkAutoReconnect);
             Controls.Add(lblDefaultDelay);
             Controls.Add(txtDefaultDelay);
             Controls.Add(lblDefaultPressDuration);
