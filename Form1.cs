@@ -44,7 +44,7 @@ namespace AutoClickScenarioTool
         // Expose script running state for external helpers (e.g. message filter)
         public bool IsScriptRunning => _scriptService?.IsRunning ?? false;
 
-        
+
 
         private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
         private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
@@ -153,6 +153,8 @@ namespace AutoClickScenarioTool
                 UpdateUndoRedoButtons();
             }
             catch { }
+            // Ensure humanize button reflects the current defaults on first show
+            try { UpdateHumanizeButtonAppearance(); } catch { }
         }
 
         private void UpdateUndoRedoButtons()
@@ -251,7 +253,7 @@ namespace AutoClickScenarioTool
                         if (seen.Add(display)) cmbFocusApp.Items.Add(display);
                     }
                     catch { }
-            try { AdjustGridColumnWidths(); } catch { }
+                    try { AdjustGridColumnWidths(); } catch { }
                 }
                 // restore previous selection if still present
                 if (!string.IsNullOrWhiteSpace(prev))
@@ -465,7 +467,7 @@ namespace AutoClickScenarioTool
             catch { }
         }
 
-        
+
 
         private void cmbOutputTarget_SelectedIndexChanged(object? sender, EventArgs e)
         {
@@ -1107,7 +1109,7 @@ namespace AutoClickScenarioTool
                 for (int i = 3; i < dgvScenario.ColumnCount; i++) cells[i] = string.Empty;
                 dgvScenario.Rows.Add(cells);
                 RefreshNoColumn();
-            try { AdjustGridColumnWidths(); } catch { }
+                try { AdjustGridColumnWidths(); } catch { }
             }
             catch { }
         }
@@ -2240,7 +2242,7 @@ namespace AutoClickScenarioTool
             catch { }
         }
 
-        
+
 
         // グローバルマウスクリック時の座標抽出処理
         public void HandleGlobalMouseClick(int x, int y)
@@ -2511,6 +2513,11 @@ namespace AutoClickScenarioTool
             {
                 try { grab.Close(); grab.Dispose(); } catch { }
             }
+        }
+
+        private void txtHumanizeUpper_TextChanged(object sender, EventArgs e)
+        {
+
         }
     }
 

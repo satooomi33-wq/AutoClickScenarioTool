@@ -8,6 +8,8 @@ void setup() {
   Serial.begin(115200);
   delay(200);
   Serial.println("TEENSY_ID:VKEY");
+  // ensure no keys are held on startup
+  Keyboard.releaseAll();
 }
 
 void pressAndReleaseKey(uint16_t keyCode, int dur) {
@@ -35,6 +37,16 @@ void handleKeyCommand(String s) {
       pressAndReleaseKey(KEY_ENTER, dur);
     } else if (key.equalsIgnoreCase("TAB")) {
       pressAndReleaseKey(KEY_TAB, dur);
+    } else if (key.equalsIgnoreCase("SHIFT") || key.equalsIgnoreCase("LSHIFT")) {
+      pressAndReleaseKey(KEY_LEFT_SHIFT, dur);
+    } else if (key.equalsIgnoreCase("RSHIFT")) {
+      pressAndReleaseKey(KEY_RIGHT_SHIFT, dur);
+    } else if (key.equalsIgnoreCase("CTRL") || key.equalsIgnoreCase("LCTRL")) {
+      pressAndReleaseKey(KEY_LEFT_CTRL, dur);
+    } else if (key.equalsIgnoreCase("ALT") || key.equalsIgnoreCase("LALT")) {
+      pressAndReleaseKey(KEY_LEFT_ALT, dur);
+    } else if (key.equalsIgnoreCase("GUI") || key.equalsIgnoreCase("WIN")) {
+      pressAndReleaseKey(KEY_LEFT_GUI, dur);
     }
     // add more named keys as needed
   }
@@ -81,6 +93,10 @@ void loop() {
       if (line.length() == 0) continue;
       if (line.equalsIgnoreCase("PING")) {
         Serial.println("PONG");
+      } else if (line.equalsIgnoreCase("RELEASEALL") || line.equalsIgnoreCase("RELEASE")) {
+        // emergency release all keys
+        Keyboard.releaseAll();
+        Serial.println("RELEASED");
       } else if (line.startsWith("KEY:") ) {
         handleKeyCommand(line);
       } else if (line.startsWith("CHORD:")) {

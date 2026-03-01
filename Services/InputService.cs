@@ -96,6 +96,9 @@ namespace AutoClickScenarioTool.Services
         [DllImport("user32.dll", SetLastError = true)]
         private static extern uint SendInput(uint nInputs, [In] INPUT[] pInputs, int cbSize);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
         [DllImport("user32.dll")]
         private static extern uint MapVirtualKey(uint uCode, uint uMapType);
         private const uint MAPVK_VK_TO_VSC = 0;
@@ -284,12 +287,21 @@ namespace AutoClickScenarioTool.Services
                 var res = SendInput(1, inputs, INPUT.Size);
                 if (res == 0)
                 {
-                    // fallback: use SendKeys for key down events
-                    if (!keyUp)
+                    // fallback: attempt to synthesize key event via keybd_event for both down/up
+                    try
                     {
-                        var s = MapVkToSendKeys(vk);
-                        try { if (!string.IsNullOrEmpty(s)) SendKeys.SendWait(s); }
-                        catch { }
+                        byte bvk = (byte)(vk & 0xFF);
+                        uint flags = keyUp ? KEYEVENTF_KEYUP : 0u;
+                        keybd_event(bvk, 0, flags, UIntPtr.Zero);
+                    }
+                    catch
+                    {
+                        // last resort: for key down only try SendKeys.SendWait
+                        if (!keyUp)
+                        {
+                            var s = MapVkToSendKeys(vk);
+                            try { if (!string.IsNullOrEmpty(s)) SendKeys.SendWait(s); } catch { }
+                        }
                     }
                 }
             }

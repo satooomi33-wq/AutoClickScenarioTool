@@ -86,6 +86,9 @@
             chkAutoReconnect = new CheckBox();
             lblSerialStatus = new Label();
             dgvScenario = new DataGridView();
+            // Ensure only single cell selection to avoid multiple-selection surprises
+            dgvScenario.MultiSelect = false;
+            dgvScenario.SelectionMode = DataGridViewSelectionMode.CellSelect;
             txtLog = new TextBox();
             lblDefaultDelay = new Label();
             txtDefaultDelay = new TextBox();
@@ -387,21 +390,22 @@
             txtHumanizeUpper.Name = "txtHumanizeUpper";
             txtHumanizeUpper.Size = new Size(66, 35);
             txtHumanizeUpper.TabIndex = 17;
+            txtHumanizeUpper.TextChanged += txtHumanizeUpper_TextChanged;
             // 
             // btnToggleHumanize
             // 
-            btnToggleHumanize.Location = new Point(270, 398);
+            btnToggleHumanize.Location = new Point(270, 400);
             btnToggleHumanize.Name = "btnToggleHumanize";
-            btnToggleHumanize.Size = new Size(146, 37);
+            btnToggleHumanize.Size = new Size(180, 37);
             btnToggleHumanize.TabIndex = 3;
             btnToggleHumanize.Text = "擬人化切替";
-            btnToggleHumanize.UseVisualStyleBackColor = true;
+            btnToggleHumanize.UseVisualStyleBackColor = false;
             btnToggleHumanize.Click += btnToggleHumanize_Click;
             // 
             // cmbFocusApp
             // 
             cmbFocusApp.FormattingEnabled = true;
-            cmbFocusApp.Location = new Point(433, 397);
+            cmbFocusApp.Location = new Point(468, 400);
             cmbFocusApp.Name = "cmbFocusApp";
             cmbFocusApp.Size = new Size(427, 38);
             cmbFocusApp.TabIndex = 18;
