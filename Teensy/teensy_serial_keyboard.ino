@@ -50,22 +50,23 @@ void handleChordCommand(String s) {
   int dur = p >= 0 ? body.substring(p+1).toInt() : 100;
   // press all
   int i = 0;
-  while (i < keys.length()) {
+  int len = (int)keys.length();
+  while (i < len) {
     int j = keys.indexOf('+', i);
     String k = j < 0 ? keys.substring(i) : keys.substring(i, j);
     k.trim();
     if (k.length() == 1) Keyboard.press(k.charAt(0));
-    i = j < 0 ? keys.length() : j + 1;
+    i = j < 0 ? len : j + 1;
   }
   delay(max(0, dur));
   // release all
   i = 0;
-  while (i < keys.length()) {
+  while (i < len) {
     int j = keys.indexOf('+', i);
     String k = j < 0 ? keys.substring(i) : keys.substring(i, j);
     k.trim();
     if (k.length() == 1) Keyboard.release(k.charAt(0));
-    i = j < 0 ? keys.length() : j + 1;
+    i = j < 0 ? len : j + 1;
   }
 }
 
