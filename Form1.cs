@@ -637,23 +637,13 @@ namespace AutoClickScenarioTool
             }
             catch { }
 
-            // プロジェクト直下のDataを優先し、なければbin配下を使う
+            // 実行ファイルの隣にある Data フォルダを既定のデータフォルダとして使用します
             try
             {
-                var exeDir = AppDomain.CurrentDomain.BaseDirectory;
-                var projDir = Path.GetFullPath(Path.Combine(exeDir, "..", "..", ".."));
-                var projData = Path.Combine(projDir, "Data");
-                if (Directory.Exists(projData) && Directory.EnumerateFiles(projData, "*.json").Any())
-                {
-                    txtDataFolder.Text = projData;
-                }
-                else
-                {
-                    var binData = Path.Combine(exeDir, "Data");
-                    if (!Directory.Exists(binData))
-                        Directory.CreateDirectory(binData);
-                    txtDataFolder.Text = binData;
-                }
+                var exeDir = AppContext.BaseDirectory;
+                var exeData = Path.Combine(exeDir, "Data");
+                if (!Directory.Exists(exeData)) Directory.CreateDirectory(exeData);
+                txtDataFolder.Text = exeData;
             }
             catch { /* ignore */ }
 

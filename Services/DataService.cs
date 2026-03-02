@@ -40,8 +40,15 @@ namespace AutoClickScenarioTool.Services
             await File.WriteAllTextAsync(filePath, json).ConfigureAwait(false);
         }
 
-        public async Task<AutoClickScenarioTool.Models.DefaultSettings> LoadDefaultsAsync(string path = "Data/defaults.json")
+        public async Task<AutoClickScenarioTool.Models.DefaultSettings> LoadDefaultsAsync(string? path = null)
         {
+            // 相対パスが渡された場合や null の場合は実行ファイル隣の Data フォルダを優先して参照します
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                var baseDir = AppContext.BaseDirectory;
+                path = Path.Combine(baseDir, "Data", "defaults.json");
+            }
+
             if (!File.Exists(path))
                 return new AutoClickScenarioTool.Models.DefaultSettings();
 
@@ -60,8 +67,13 @@ namespace AutoClickScenarioTool.Services
             }
         }
 
-        public async Task SaveDefaultsAsync(AutoClickScenarioTool.Models.DefaultSettings settings, string path = "Data/defaults.json")
+        public async Task SaveDefaultsAsync(AutoClickScenarioTool.Models.DefaultSettings settings, string? path = null)
         {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                var baseDir = AppContext.BaseDirectory;
+                path = Path.Combine(baseDir, "Data", "defaults.json");
+            }
             var dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
