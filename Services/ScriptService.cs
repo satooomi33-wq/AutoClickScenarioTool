@@ -10,8 +10,8 @@ namespace AutoClickScenarioTool.Services
 {
     public class ScriptService
     {
-        // Optional override to send key actions externally (e.g., to Teensy via serial).
-        // Signature: (keySpec, durationMs, useScanCode) => returns true if handled and default sending should be skipped.
+        // 外部（例: Teensy のシリアル）へキーアクションを送信するための任意のオーバーライド。
+        // 署名: (keySpec, durationMs, useScanCode) => 処理された場合は true を返し、既定の送信をスキップします。
         public Func<string, int, bool, bool>? ExternalSendOverride { get; set; }
 
         private readonly InputService _input;
@@ -38,7 +38,7 @@ namespace AutoClickScenarioTool.Services
             _input = input;
         }
 
-        // Helper to log base/actual/offset timing info in a consistent format
+        // 基本時間 / 実際時間 / オフセットを一貫した形式でログ出力するヘルパー
         private void LogTiming(string label, int baseMs, int actualMs, int offset)
         {
             try
@@ -85,7 +85,7 @@ namespace AutoClickScenarioTool.Services
             {
                 try
                 {
-                    // change: schedule actions relative to previous row end; each action gets its own humanized offset
+                    // 変更: 各行は前行の終了時刻に相対してスケジュールされます。各アクションに個別の擬人化オフセットを適用。
                     var runTimer = System.Diagnostics.Stopwatch.StartNew();
                     long prevRowEnd = 0; // milliseconds since run start
                     for (int i = startIndex; i < steps.Count; i++)
@@ -102,7 +102,7 @@ namespace AutoClickScenarioTool.Services
                         int baseDelay = Math.Max(0, step.Delay);
                         int basePd = Math.Max(0, step.PressDuration);
 
-                        // build per-action schedule
+                        // 各アクションのスケジュールを構築
                         var schedule = new List<(int idx, string action, long scheduledStartMs, int pdBase, int pdActual, int pdOffset, int delayOffset)>();
                         for (int aidx = 0; aidx < actionCount; aidx++)
                         {
@@ -155,7 +155,7 @@ namespace AutoClickScenarioTool.Services
                             token.ThrowIfCancellationRequested();
                             _pauseEvent.Wait(token);
 
-                            // wait until scheduled start
+                            // スケジュール開始まで待機
                             while (true)
                             {
                                 var now = runTimer.ElapsedMilliseconds;
@@ -167,7 +167,7 @@ namespace AutoClickScenarioTool.Services
                                 await Task.Delay(chunk, token).ConfigureAwait(false);
                             }
 
-                            OnLog?.Invoke($"行{i + 1} アクション{item.idx + 1}/{actionCount} 開始 (delay base={baseDelay} offset={item.delayOffset})");
+                            OnLog?.Invoke($"行{i + 1} アクション{item.idx + 1}/{actionCount} 開始 (遅延 基本={baseDelay} オフセット={item.delayOffset})");
                             OnLog?.Invoke($"アクション解析: '{item.action}'");
 
                             var parts = item.action.Split(',');
@@ -249,7 +249,7 @@ namespace AutoClickScenarioTool.Services
                     {
                         if (UseScanCode)
                         {
-                            // InputService should provide scan-code based sending API
+                                // InputService はスキャンコード経由の送信 API を提供します
                             _input.SendByScanCode(keySpec);
                             OnLog?.Invoke($"Send by ScanCode: {keySpec}");
                         }

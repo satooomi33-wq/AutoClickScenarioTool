@@ -6,10 +6,12 @@ namespace AutoClickScenarioTool.Services
 {
     public class KeyboardMonitor : IDisposable
     {
+        // 低レベルフックのプロシージャ型
         private delegate IntPtr LowLevelProc(int nCode, IntPtr wParam, IntPtr lParam);
         private LowLevelProc? _proc;
         private IntPtr _hook = IntPtr.Zero;
 
+        // キーイベント発生時に (vkCode, scanCode, flags) を通知する
         public event Action<int, int, int>? OnKey; // vkCode, scanCode, flags
 
         private const int WH_KEYBOARD_LL = 13;
@@ -38,11 +40,12 @@ namespace AutoClickScenarioTool.Services
         [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
         private static extern IntPtr GetModuleHandle(string? lpModuleName);
 
+        // フック開始
         public void Start()
         {
             if (_hook != IntPtr.Zero) return;
             _proc = HookCallback;
-            // get module handle for current process
+            // 現在のプロセスのモジュールハンドルを取得
             IntPtr mod = GetModuleHandle(Process.GetCurrentProcess().MainModule?.ModuleName);
             _hook = SetWindowsHookEx(WH_KEYBOARD_LL, _proc, mod, 0);
         }

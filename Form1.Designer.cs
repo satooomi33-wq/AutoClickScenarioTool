@@ -3,14 +3,14 @@
     partial class Form1
     {
         /// <summary>
-        ///  Required designer variable.
+        ///  デザイナーで使用される必須の変数です。
         /// </summary>
         private System.ComponentModel.IContainer components = null;
 
         /// <summary>
-        ///  Clean up any resources being used.
+        ///  使用中のリソースを破棄します。
         /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        /// <param name="disposing">マネージド リソースを破棄する場合は true、それ以外は false。</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -23,8 +23,8 @@
         #region Windows Form Designer generated code
 
         /// <summary>
-        ///  Required method for Designer support - do not modify
-        ///  the contents of this method with the code editor.
+        ///  デザイナー サポートに必要なメソッド。
+        ///  エディターで内容を直接変更しないでください。
         /// </summary>
         private System.Windows.Forms.Button btnStart;
         private System.Windows.Forms.Button btnPause;

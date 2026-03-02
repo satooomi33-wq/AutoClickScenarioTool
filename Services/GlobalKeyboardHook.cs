@@ -10,14 +10,15 @@ namespace AutoClickScenarioTool.Services
     {
         public event Action<string>? OnKeyPressed;
 
-        // If true, handled keys will be suppressed from reaching other apps/controls
+        // true の場合、処理済みのキー入力を他のアプリやコントロールへ渡さない（抑止）
         public bool SuppressKeys { get; set; } = false;
-        // Optional predicate to decide at runtime whether to suppress the currently-captured key
+        // 実行時に現在キャプチャしたキーを抑止するか決めるオプションの述語
         public Func<bool>? ShouldSuppress { get; set; }
 
         private IntPtr _hookId = IntPtr.Zero;
         private HookProc _proc;
 
+        // コンストラクタ
         public GlobalKeyboardHook()
         {
             _proc = HookCallback;
@@ -46,6 +47,7 @@ namespace AutoClickScenarioTool.Services
 
         private delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
 
+        // フックコールバック: キーイベントを受け取って処理・変換し、必要なら suppression を行う
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
             try
@@ -56,14 +58,14 @@ namespace AutoClickScenarioTool.Services
                 {
                     int vkCode = Marshal.ReadInt32(lParam);
                     var key = (System.Windows.Forms.Keys)vkCode;
-                    // ignore pure modifier key presses (Shift, Ctrl, Alt)
+                    // 純粋な修飾キー（Shift, Ctrl, Alt）だけの押下は無視する
                     if (key == Keys.ShiftKey || key == Keys.ControlKey || key == Keys.Menu || key == Keys.LShiftKey || key == Keys.RShiftKey || key == Keys.LControlKey || key == Keys.RControlKey || key == Keys.LMenu || key == Keys.RMenu)
                     {
                         return CallNextHookEx(_hookId, nCode, wParam, lParam);
                     }
 
                     string keyName = key.ToString();
-                    // If this is an OEM key like OemPlus, try to convert to actual character
+                    // Oem系キー（例: OemPlus）の場合、可能なら実際の文字に変換を試みる
                     if (keyName.StartsWith("Oem", StringComparison.OrdinalIgnoreCase))
                     {
                         if (TryGetCharFromKey((int)key, out string ch) && !string.IsNullOrEmpty(ch))
@@ -76,7 +78,7 @@ namespace AutoClickScenarioTool.Services
                             keyName = MapOemKeyName((int)key) ?? keyName;
                         }
                     }
-                    // normalize common names
+                    // 一般的なキー名を正規化
                     if (keyName.Length == 2 && keyName[0] == 'D' && char.IsDigit(keyName[1]))
                     {
                         keyName = keyName.Substring(1);
@@ -92,7 +94,8 @@ namespace AutoClickScenarioTool.Services
 
                     OnKeyPressed?.Invoke(keyName);
 
-                    // Only suppress if requested AND (either ShouldSuppress approves OR this process is foreground)
+                    // 抑止は、SuppressKeys=true のときにのみ行う。かつ ShouldSuppress が true を返すか
+                    // またはこのプロセスが前景フォアグラウンドのときに抑止する。
                     if (SuppressKeys && OnKeyPressed != null)
                     {
                         try

@@ -17,7 +17,7 @@ namespace AutoClickScenarioTool.Services
         // 保存時に使う修飾子順
         private static readonly string[] ModifierOrder = new[] { "CTRL", "ALT", "SHIFT" };
 
-        // Validate and normalize. Returns (ok, normalizedValue, errorMessage)
+        // 入力文字列を検証して正規化します。戻り値は (ok, normalizedValue, errorMessage)
         public static (bool ok, string normalized, string? error) ValidateAndNormalize(string raw)
         {
             if (raw is null) return (true, string.Empty, null);

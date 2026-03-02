@@ -4,6 +4,8 @@ using System.Runtime.InteropServices;
 
 namespace AutoClickScenarioTool.Services
 {
+    // グローバルなマウス低レベルフックを提供します。
+    // 左ボタンの押下イベントを監視し、座標を通知する用途で使用します。
     public class GlobalMouseHook : IDisposable
     {
         public event Action<int, int>? OnMouseClick;

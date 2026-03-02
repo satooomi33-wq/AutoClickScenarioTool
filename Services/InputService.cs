@@ -11,7 +11,7 @@ namespace AutoClickScenarioTool.Services
 {
     public class InputService
     {
-        // WinAPI constants
+        // WinAPI 定数
         private const uint INPUT_KEYBOARD = 1;
         private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
         private const uint KEYEVENTF_KEYUP = 0x0002;
@@ -26,7 +26,7 @@ namespace AutoClickScenarioTool.Services
             public static int Size => Marshal.SizeOf<INPUT>();
         }
 
-        // Resolve keySpec into modifier list and virtual key or unicode indicator
+        // keySpec を修飾キー一覧と仮想キー(VK)または Unicode 指示子に解決します
         private (List<ushort> modList, ushort vk, bool isUnicode) ResolveKeySpec(string keySpec)
         {
             var parts = keySpec.Split('+').Select(p => p.Trim()).ToArray();
@@ -114,7 +114,7 @@ namespace AutoClickScenarioTool.Services
         private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
         private const int MDT_EFFECTIVE_DPI = 0;
 
-        // simple map for named keys
+        // 名前付きキーの簡易マップ
         private static readonly Dictionary<string, ushort> NamedVks = new Dictionary<string, ushort>(StringComparer.OrdinalIgnoreCase)
         {
             {"ENTER", 0x0D}, {"TAB", 0x09}, {"ESC", 0x1B}, {"ESCAPE", 0x1B},
@@ -124,7 +124,7 @@ namespace AutoClickScenarioTool.Services
             {"PAGEUP", 0x21}, {"PAGEDOWN", 0x22}
         };
 
-        // Public API used by ScriptService
+        // ScriptService から使用される公開 API
         public void SendByKeyName(string keySpec)
         {
             InternalSend(keySpec, useScanCode: false);
@@ -135,7 +135,7 @@ namespace AutoClickScenarioTool.Services
             InternalSend(keySpec, useScanCode: true);
         }
 
-        // Send key with hold duration (ms). If unable to perform a true hold (e.g. Unicode path), falls back to immediate send.
+        // 指定時間（ミリ秒）キーを押し続けて送信します。Unicode 経路などで保持が難しい場合は即時送信にフォールバックします。
         public void SendByKeyNameWithDuration(string keySpec, int duration, bool useScanCode = false)
         {
             if (string.IsNullOrWhiteSpace(keySpec)) return;
@@ -368,7 +368,7 @@ namespace AutoClickScenarioTool.Services
             };
         }
 
-        // Send mouse clicks using SendInput with absolute coordinates to handle DPI / multi-monitor correctly
+        // マウスクリックを送信します。DPI やマルチモニターに対応するため絶対座標を使用します
         public void ClickMultiple(PositionList list, int pressDuration = 12)
         {
             if (list == null) return;
@@ -407,8 +407,8 @@ namespace AutoClickScenarioTool.Services
         private const int SM_CXVIRTUALSCREEN = 78;
         private const int SM_CYVIRTUALSCREEN = 79;
 
-        // Convert a logical screen point (e.g. Cursor.Position) to physical pixels
-        // taking per-monitor DPI into account. Returns a Point in physical screen coordinates.
+        // 論理スクリーン座標（例: Cursor.Position）をモニターごとの DPI を考慮して物理ピクセルに変換します。
+        // 物理スクリーン座標の Point を返します。
         public System.Drawing.Point ConvertToPhysicalPoint(int x, int y)
         {
             try
@@ -450,7 +450,7 @@ namespace AutoClickScenarioTool.Services
                 if (vwidth <= 0) vwidth = 1;
                 if (vheight <= 0) vheight = 1;
 
-                // Attempt to account for per-monitor DPI scaling: convert logical coordinates to physical if possible.
+                // モニターごとの DPI スケーリングを考慮して、可能なら論理座標を物理座標に変換します。
                 try
                 {
                     // get monitor for point
@@ -474,15 +474,11 @@ namespace AutoClickScenarioTool.Services
                 }
                 catch { }
 
-                // normalize to 0..65535
+                // 0..65535 に正規化
                 uint normX = (uint)Math.Round((double)(x - vx) * 65535.0 / (vwidth - 1));
                 uint normY = (uint)Math.Round((double)(y - vy) * 65535.0 / (vheight - 1));
 
-                // move
-                var inputMove = new INPUT
-                {
-                    type = INPUT_KEYBOARD, // placeholder then overwrite union
-                };
+                // マウス移動/ダウン/アップを行う。ここでは互換性のため SetCursorPos + mouse_event を使う。
 
                 // Build INPUT array for move + down + up
                 // We must construct the INPUT memory compatible with existing INPUT struct
